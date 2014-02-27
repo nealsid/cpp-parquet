@@ -29,14 +29,17 @@ using parquet::RowGroup;
 using parquet::SchemaElement;
 using parquet::Type;
 
-const uint32_t kDataBytesPerPage = 81920000
+using std::string;
+using std::vector;
+
+const uint32_t kDataBytesPerPage = 81920000;
 
 namespace parquet_file {
 class ParquetColumn {
  public:
   ParquetColumn(string column_name, Type data_type, 
 		FieldRepetitionType repetition_type);
-  AddValue(uint32_t data);
+  void AddValue(uint32_t data);
  private:
   vector<ParquetColumn*> children_;
   vector<ColumnChunk> data_chunks_;
@@ -45,7 +48,7 @@ class ParquetColumn {
 
   /* ColumnChunk data for this column */
   string file_path_;
-  uint64 file_offset_;
+  uint64_t file_offset_;
   
   /* ColumnMetaData for this column */
   Type data_type_;
@@ -60,8 +63,8 @@ class ParquetFile {
   ParquetColumn* AddField(string column_name, 
 			  Type data_type, 
 			  FieldRepetitionType repetition_type);
-  Flush();
-  Close();
+  void Flush();
+  void Close();
  private:
   FileMetaData file_meta_data_;
   string file_base_;
@@ -70,4 +73,4 @@ class ParquetFile {
 };
 }  // namespace parquet_file
 
-#endif  // #ifdef __PARQUET_FILE_H__
+#endif  // #ifndef __PARQUET_FILE_H__
