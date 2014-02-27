@@ -59,17 +59,23 @@ class ParquetColumn {
 
 class ParquetFile {
  public:
-  ParquetFile(string file_base, int num_files);
+  ParquetFile(string file_base, int num_files = 1);
   ParquetColumn* AddField(string column_name, 
 			  Type data_type, 
 			  FieldRepetitionType repetition_type);
   void Flush();
   void Close();
+  bool IsOK() { return ok_; }
  private:
   FileMetaData file_meta_data_;
   string file_base_;
   int num_files_;
   ParquetColumn* root_column;
+  boost::shared_ptr<TFDTransport> file_transport_;
+  boost::shared_ptr<TCompactProtocol> protocol_;
+  
+  bool ok_;
+  int fd_;
 };
 }  // namespace parquet_file
 
