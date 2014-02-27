@@ -67,15 +67,23 @@ class ParquetFile {
   void Close();
   bool IsOK() { return ok_; }
  private:
+  void InitializeSchema();
+  /* The root column of the schema */
+  ParquetColumn* root_column;
+  int num_rows;
+
+  /* Parquet Thrift structures */
   FileMetaData file_meta_data_;
+
+  /* Variables that represent file system properties */
   string file_base_;
   int num_files_;
-  ParquetColumn* root_column;
+  int fd_;
+
   boost::shared_ptr<TFDTransport> file_transport_;
   boost::shared_ptr<TCompactProtocol> protocol_;
   
   bool ok_;
-  int fd_;
 };
 }  // namespace parquet_file
 

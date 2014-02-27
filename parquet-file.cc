@@ -31,6 +31,14 @@ const char* kParquetMagicBytes = "PAR1";
 
 namespace parquet_file {
 
+  void ParquetFile::InitializeSchema() {
+    assert(!ok_);
+    SchemaElement root_column;
+    root_column.__set_name("root");
+    root_column.__set_num_children(0);
+    file_metadata_.__set_schema({root_column});
+  }
+
   ParquetFile::ParquetFile(string file_base, int num_files) {
     assert(num_files == 1);
     ok_ = false;
@@ -44,6 +52,12 @@ namespace parquet_file {
     write(fd_, kParquetMagicBytes, strlen(kParquetMagicBytes));
     file_transport_.reset(new TFDTransport(fd_));
     protocol_.reset(new TCompactProtocol(file_transport_));
+
+    file_metadata_.__set_num_rows(num_rows);
+    file_metadata_.__set_version(1);
+    file_metadata_.__set_created_by("Neal sid");
+    InitializeSchema();
+
     ok_ = true;
     return;
   }
@@ -52,7 +66,14 @@ namespace parquet_file {
 				       Type data_type, 
 				       FieldRepetitionType repetition_type) {
 
-    return NULL;
+    // These restrictions will be removed later
+    assert(data_type == Type::INT32);
+    assert(repetition_type == FieldRepetitionType::REQUIRED);
+
+    SchemaElement new_column;
+    new_column.__set_type(data_type);
+    new_column.__set_repetition_type(repetition_type);
+    new_column.__set_name("randomints");
   }
 
 }  // namespace parquet_file
