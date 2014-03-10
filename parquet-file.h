@@ -1,13 +1,14 @@
 // Copyright 2014 Mount Sinai School of Medicine
 
 #include "parquet_types.h"
-#include "thrift/protocol/TCompactProtocol.h"
-#include "thrift/transport/TFDTransport.h"
+#include "parquet-column.h"
 
 #include <fcntl.h>
-
 #include <boost/shared_ptr.hpp>
+#include <glog/logging.h>
 #include <string>
+#include <thrift/protocol/TCompactProtocol.h>
+#include <thrift/transport/TFDTransport.h>
 #include <vector>
 
 #ifndef __PARQUET_FILE_H__
@@ -15,74 +16,46 @@
 
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
-
-using parquet::ColumnChunk;
-using parquet::ColumnMetaData;
-using parquet::CompressionCodec;
-using parquet::DataPageHeader;
-using parquet::Encoding;
-using parquet::FieldRepetitionType;
 using parquet::FileMetaData;
-using parquet::PageHeader;
-using parquet::PageType;
-using parquet::RowGroup;
-using parquet::SchemaElement;
-using parquet::Type;
-
 using std::string;
 using std::vector;
 
 const uint32_t kDataBytesPerPage = 81920000;
 
 namespace parquet_file {
-class ParquetColumn {
- public:
-  ParquetColumn(string column_name, Type data_type, 
-		FieldRepetitionType repetition_type);
-  void AddValue(uint32_t data);
- private:
-  vector<ParquetColumn*> children_;
-  vector<ColumnChunk> data_chunks_;
-  ColumnMetaData column_metadata_;
-  DataPageHeader data_header_;
 
-  /* ColumnChunk data for this column */
-  string file_path_;
-  uint64_t file_offset_;
-  
-  /* ColumnMetaData for this column */
-  Type data_type_;
-  FieldRepetitionType repetition_type_;
-  string column_name_;
-  
-};
-
+// Main class that represents a Parquet file on disk. 
 class ParquetFile {
  public:
   ParquetFile(string file_base, int num_files = 1);
-  ParquetColumn* AddField(string column_name, 
-			  Type data_type, 
-			  FieldRepetitionType repetition_type);
+  void SetSchema(const vector<ParquetColumn*>& schema);
   void Flush();
   void Close();
   bool IsOK() { return ok_; }
  private:
-  void InitializeSchema();
-  /* The root column of the schema */
-  ParquetColumn* root_column;
   int num_rows;
 
-  /* Parquet Thrift structures */
+  // Parquet Thrift structure that has metadata about the entire file.
   FileMetaData file_meta_data_;
 
-  /* Variables that represent file system properties */
+  /* Variables that represent file system location and data. */
   string file_base_;
   int num_files_;
   int fd_;
 
+  // Member variables used to actually encode & write the data to
+  // disk.
   boost::shared_ptr<TFDTransport> file_transport_;
   boost::shared_ptr<TCompactProtocol> protocol_;
   
+  // Walker for the schema.  Parquet requires columns specified as a
+  // vector that is the depth first preorder traversal of the schema,
+  // which is what this method does.
+  void DepthFirstSchemaTraversal(const ParquetColumn& root_column,
+				 ParquetColumnWalker* callback);
+
+  // A bit indicating that we've initialized OK, defined the schema,
+  // and are ready to start accepting & writing data.
   bool ok_;
 };
 }  // namespace parquet_file
