@@ -69,11 +69,13 @@ class ParquetColumnWalker {
   // A vector in which nodes are appended according to their order in
   // the depth first traversal.  We do not take ownership of the
   // vector.
-  ParquetColumnWalker(vector<SchemaElement*>* dfsVector);
+  ParquetColumnWalker(vector<SchemaElement>* dfsVector);
 
   void ColumnCallback(const ParquetColumn* column);
  private:
-  vector<SchemaElement*>* dfsVector_;
+  // SchemaElement is a POD object, which is why we store the actual
+  // message and not a pointer.
+  vector<SchemaElement>* dfsVector_;
 };
 
 }  // namespace parquet_file

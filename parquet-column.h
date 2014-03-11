@@ -27,7 +27,8 @@ namespace parquet_file {
 // different fields filled in.
 class ParquetColumn {
 public:
-  // Takes a name and the reptition type (defined by Parquet)
+  // Takes a name and the reptition type (the enum is defined by
+  // Parquet)
   ParquetColumn(const string& column_name,
 		FieldRepetitionType::type repetition_type);
   // Set/get the children of this column
@@ -39,7 +40,6 @@ public:
   string Name() const;
   // Pretty printing method.
   virtual string ToString() const;
- protected:
  private:
   // The name of the column.
   string column_name_;
@@ -60,7 +60,12 @@ class ParquetDataColumn : public ParquetColumn {
 		    FieldRepetitionType::type repetition_type);
   // Accessor and pretty-printing
   Type::type Type() const;
+  // Override
   virtual string ToString() const;
+  // Method that adds a row of data to this column
+  void AddRow(void* buf);
+  // Method that returns the number of bytes for a given Parquet data type
+  static size_t BytesForDataType(Type::type dataType);
  private:
   // These represent the Parquet structures that will track this
   // column on-disk.
@@ -70,6 +75,15 @@ class ParquetDataColumn : public ParquetColumn {
   
   // Parquet datatype for this column.
   Type::type data_type_;
+  // Bookkeeping
+  int num_rows_;
+  // The number of bytes each instance of the datatype stored in this
+  // column takes.
+  int bytes_per_datum_;
+  // Data buffer
+  unsigned char data_buffer_[1024000];
+  // Current data pointer;
+  unsigned char* data_ptr_;
 };
 
 }  // namespace parquet_file

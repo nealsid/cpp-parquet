@@ -4,7 +4,6 @@
 using parquet_file::ParquetDataColumn;
 using parquet_file::ParquetFile;
 
-
 int main(int argc, char* argv[]) {
   if (argc < 3) {
     printf("Specify filename and number of items:\n\n\t%s <output file> <NNN>\n\n", argv[0]);
