@@ -17,6 +17,7 @@
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
 using parquet::FileMetaData;
+using parquet::SchemaElement;
 using std::string;
 using std::vector;
 
@@ -24,6 +25,7 @@ const uint32_t kDataBytesPerPage = 81920000;
 
 namespace parquet_file {
 
+class ParquetColumnWalker;
 // Main class that represents a Parquet file on disk. 
 class ParquetFile {
  public:
@@ -51,13 +53,29 @@ class ParquetFile {
   // Walker for the schema.  Parquet requires columns specified as a
   // vector that is the depth first preorder traversal of the schema,
   // which is what this method does.
-  void DepthFirstSchemaTraversal(const ParquetColumn& root_column,
+  void DepthFirstSchemaTraversal(const ParquetColumn* root_column,
 				 ParquetColumnWalker* callback);
 
   // A bit indicating that we've initialized OK, defined the schema,
   // and are ready to start accepting & writing data.
   bool ok_;
 };
+
+// A callback class for use with DepthFirstSchemaTraversal.  The
+// callback is called for each column in a depth-first, preorder,
+// traversal.
+class ParquetColumnWalker {
+ public:
+  // A vector in which nodes are appended according to their order in
+  // the depth first traversal.  We do not take ownership of the
+  // vector.
+  ParquetColumnWalker(vector<SchemaElement*>* dfsVector);
+
+  void ColumnCallback(const ParquetColumn* column);
+ private:
+  vector<SchemaElement*>* dfsVector_;
+};
+
 }  // namespace parquet_file
 
 #endif  // #ifndef __PARQUET_FILE_H__

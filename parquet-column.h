@@ -72,16 +72,6 @@ class ParquetDataColumn : public ParquetColumn {
   Type::type data_type_;
 };
 
-// A callback class for use with DepthFirstSchemaTraversal.  The
-// callback is called for each column in a depth-first, preorder,
-// traversal.
-class ParquetColumnWalker {
-public:
-  void ColumnCallback(const ParquetColumn& column) {
-    VLOG(2) << column.ToString();
-  }
-};
-
 }  // namespace parquet_file
 
 #endif  // #ifndef __PARQUET_COLUMN_H__
