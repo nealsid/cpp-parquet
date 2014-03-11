@@ -17,6 +17,17 @@ int main(int argc, char* argv[]) {
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
-  output.SetSchema({one_column});
+  ParquetColumn* two_column = 
+    new ParquetColumn("AllInts1", parquet::Type::INT32, 
+		      FieldRepetitionType::REQUIRED, 
+		      Encoding::PLAIN,
+		      CompressionCodec::UNCOMPRESSED);
+  output.SetSchema({one_column, two_column});
+  uint32_t data[500];
+  for (int i = 0; i < 500; ++i) {
+    data[i] = i;
+  }
+  one_column->AddRows(data, 500);
+  two_column->AddRows(data, 500);
   output.Flush();
 }

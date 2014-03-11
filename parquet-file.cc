@@ -9,9 +9,11 @@
 #include <string>
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TFDTransport.h>
+#include <thrift/protocol/TJSONProtocol.h>
 
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
+using apache::thrift::protocol::TJSONProtocol;
 
 using parquet::ColumnChunk;
 using parquet::ColumnMetaData;
@@ -36,13 +38,8 @@ ParquetFile::ParquetFile(string file_base, int num_files) {
   ok_ = false;
 
   fd_ = open(file_base.c_str(), O_RDWR | O_CREAT | O_EXCL, 0700);
-  if (fd_ == -1) {
-    fprintf(stderr, "Could not create file %s: %s\n", 
-            file_base.c_str(), 
-            strerror(errno));
-    return;
-  }
-
+  LOG_IF(FATAL, fd_ == -1) << "Could not create file " << file_base.c_str() << ": "
+			     << strerror(errno);
   // Write magic header
   write(fd_, kParquetMagicBytes, strlen(kParquetMagicBytes));
 
@@ -69,12 +66,16 @@ void ParquetFile::DepthFirstSchemaTraversal(const ParquetColumn* root_column,
 }
 
 void ParquetFile::Flush() {
+  boost::shared_ptr<TFDTransport> stderr_transport_ptr(new TFDTransport(2));
+  TJSONProtocol json_output(stderr_transport_ptr);
+
   LOG_IF(FATAL, file_columns_.size() == 0) <<
     "No columns to flush";
   off_t current_offset = lseek(fd_, 0, SEEK_CUR);
   // Make sure we know where we are in the file.  Also serves as a
   // somewhat weak guarantee that someone else hasn't written to the
   // file already.
+  VLOG(2) << "Offset at beginning of flush: " << to_string(current_offset);
   assert(current_offset == strlen(kParquetMagicBytes));
   ParquetColumn* first_column = *file_columns_.begin();
   uint32_t num_rows = first_column->NumRows();
@@ -88,10 +89,37 @@ void ParquetFile::Flush() {
       << ", Number of rows: " << column->NumRows()
       << ", expected number of rows: " << num_rows;
   }
+  VLOG(2) << "Number of rows of data: " << num_rows;
   file_meta_data_.__set_num_rows(num_rows);
+
+  RowGroup row_group;
+  row_group.__set_num_rows(num_rows);
+  row_group.__set_total_byte_size(0);
+  vector<ColumnChunk> column_chunks;
   for (auto column : file_columns_) {
-    column->Flush(protocol_.get());
+    VLOG(2) << "Writing column: " << column->Name();
+    VLOG(2) << "\t" << column->ToString();
+    column->Flush(fd_, protocol_.get());
+    ColumnMetaData column_metadata = column->ParquetColumnMetaData();
+    row_group.__set_total_byte_size(row_group.total_byte_size + 
+				    column_metadata.total_uncompressed_size);
+    VLOG(2) << "\tWrote " << to_string(column_metadata.total_uncompressed_size) 
+	    << " bytes.";
+    ColumnChunk column_chunk;
+    column_chunk.__set_file_path(file_base_.c_str());
+    column_chunk.__set_file_offset(column_metadata.data_page_offset);
+    column_chunk.__set_meta_data(column_metadata);
+    column_chunks.push_back(column_chunk);
   }
+  VLOG(2) << "Total bytes for all columns: " << row_group.total_byte_size;
+  row_group.__set_columns(column_chunks);
+  file_meta_data_.__set_row_groups({row_group});
+  uint32_t file_metadata_length = file_meta_data_.write(protocol_.get());
+  VLOG(2) << "File metadata length: " << file_metadata_length;
+  write(fd_, &file_metadata_length, sizeof(file_metadata_length));
+  write(fd_, kParquetMagicBytes, strlen(kParquetMagicBytes));
+  file_meta_data_.write(&json_output);
+  VLOG(2) << "Done.";
 }
 
 void ParquetFile::SetSchema(const vector<ParquetColumn*>& schema) {

@@ -42,6 +42,7 @@ public:
   FieldRepetitionType::type RepetitionType() const;
   Encoding::type Encoding() const;
   Type::type Type() const;
+  CompressionCodec::type CompressionCodec() const;
   string Name() const;
 
   // Method that returns the number of bytes for a given Parquet data type
@@ -49,11 +50,13 @@ public:
 
   // Method that adds a row of data to this column
   void AddRows(void* buf, uint32_t n);
-  uint32_t NumRows();
+  uint32_t NumRows() const;
 
   // Flush this column via the protocol provided.
-  void Flush(apache::thrift::protocol::TCompactProtocol* protocol);
+  void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);
 
+  // Generate a Parquet Thrift ColumnMetaData message for this column.
+  ColumnMetaData ParquetColumnMetaData() const;
   // Pretty printing method.
   string ToString() const;
  private:
@@ -71,9 +74,10 @@ public:
   // A list of columns that are children of this one.
   vector<ParquetColumn*> children_;
 
-  // These represent the Parquet structures that will track this
-  // column on-disk.
-  vector<ColumnChunk> data_chunks_;
+  // This represents the Parquet structures that will track this
+  // column on-disk.  For now, we only support one chunk per column.
+  // TODO: expand to multiple chunks
+  ColumnChunk data_chunks_;
   ColumnMetaData column_metadata_;
   DataPageHeader data_header_;
 
@@ -86,6 +90,8 @@ public:
   unsigned char data_buffer_[1024000];
   // Current data pointer;
   unsigned char* data_ptr_;
+  // The offset into the file where column data is written.
+  off_t column_write_offset_;
 };
 
 }  // namespace parquet_file
