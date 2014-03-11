@@ -148,8 +148,8 @@ int main(int argc, char* argv[]) {
   ColumnChunk column_chunk;
   column_chunk.__set_file_path(argv[1]);
   column_chunk.__set_file_offset(column_header_offset);
-
   column_chunk.__set_meta_data(column_metadata);
+
   row_group.__set_columns({column_chunk});
   file_metadata.__set_row_groups({row_group});
 

@@ -1,7 +1,7 @@
 #include "parquet-file.h"
 #include <glog/logging.h>
 
-using parquet_file::ParquetDataColumn;
+using parquet_file::ParquetColumn;
 using parquet_file::ParquetFile;
 
 int main(int argc, char* argv[]) {
@@ -12,6 +12,11 @@ int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
 
   ParquetFile output(argv[1]);
-  ParquetDataColumn* one_column = new ParquetDataColumn("AllInts", parquet::Type::INT32, FieldRepetitionType::REQUIRED);
+  ParquetColumn* one_column = 
+    new ParquetColumn("AllInts", parquet::Type::INT32, 
+		      FieldRepetitionType::REQUIRED, 
+		      Encoding::PLAIN,
+		      CompressionCodec::UNCOMPRESSED);
   output.SetSchema({one_column});
+  output.Flush();
 }

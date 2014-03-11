@@ -52,7 +52,6 @@ ParquetFile::ParquetFile(string file_base, int num_files) {
   protocol_.reset(new TCompactProtocol(file_transport_));
 
   // Parquet-specific metadata for the file.
-  file_meta_data_.__set_num_rows(num_rows);
   file_meta_data_.__set_version(1);
   file_meta_data_.__set_created_by("Neal sid");
 
@@ -66,6 +65,32 @@ void ParquetFile::DepthFirstSchemaTraversal(const ParquetColumn* root_column,
   const vector<ParquetColumn*>& children = root_column->Children();
   for (ParquetColumn* c : children) {
     DepthFirstSchemaTraversal(root_column, callback);
+  }
+}
+
+void ParquetFile::Flush() {
+  LOG_IF(FATAL, file_columns_.size() == 0) <<
+    "No columns to flush";
+  off_t current_offset = lseek(fd_, 0, SEEK_CUR);
+  // Make sure we know where we are in the file.  Also serves as a
+  // somewhat weak guarantee that someone else hasn't written to the
+  // file already.
+  assert(current_offset == strlen(kParquetMagicBytes));
+  ParquetColumn* first_column = *file_columns_.begin();
+  uint32_t num_rows = first_column->NumRows();
+  LOG_IF(FATAL, num_rows == 0) 
+    << "Number of rows in first column (name: " 
+    << first_column->Name() << ") is 0";
+  for (auto column : file_columns_) {
+    LOG_IF(FATAL, column->NumRows() != num_rows)
+      << "Columns must have the same number of rows.  "
+      << "Differing column: " << column->Name()
+      << ", Number of rows: " << column->NumRows()
+      << ", expected number of rows: " << num_rows;
+  }
+  file_meta_data_.__set_num_rows(num_rows);
+  for (auto column : file_columns_) {
+    column->Flush(protocol_.get());
   }
 }
 
@@ -85,7 +110,10 @@ void ParquetFile::SetSchema(const vector<ParquetColumn*>& schema) {
     VLOG(2) << column->ToString();
     DepthFirstSchemaTraversal(column, walker);
   }
-  VLOG(2) << parquet_schema_vector.size();
+  LOG_IF(WARNING, file_columns_.size() > 0) 
+    << "Internal file columns being reset";
+  file_columns_.clear();
+  file_columns_.assign(schema.begin(), schema.end());
   file_meta_data_.__set_schema(parquet_schema_vector);
 }
 
@@ -104,7 +132,7 @@ void ParquetColumnWalker::ColumnCallback(const ParquetColumn* column) {
   if (column->Children().size() > 0) {
     schemaElement.__set_num_children(column->Children().size());
   } else {
-    schemaElement.__set_type(((ParquetDataColumn*)column)->Type());
+    schemaElement.__set_type(column->Type());
   }
   dfsVector_->push_back(schemaElement);
 }

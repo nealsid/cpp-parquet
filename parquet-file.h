@@ -16,6 +16,7 @@
 
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
+using parquet::CompressionCodec;
 using parquet::FileMetaData;
 using parquet::SchemaElement;
 using std::string;
@@ -35,7 +36,17 @@ class ParquetFile {
   void Close();
   bool IsOK() { return ok_; }
  private:
-  int num_rows;
+  // Walker for the schema.  Parquet requires columns specified as a
+  // vector that is the depth first preorder traversal of the schema,
+  // which is what this method does.
+  void DepthFirstSchemaTraversal(const ParquetColumn* root_column,
+				 ParquetColumnWalker* callback);
+
+
+  // Does not include root.
+  vector<ParquetColumn*> file_columns_;
+  // Number of rows in all columns.
+  int num_rows_;
 
   // Parquet Thrift structure that has metadata about the entire file.
   FileMetaData file_meta_data_;
@@ -50,12 +61,6 @@ class ParquetFile {
   boost::shared_ptr<TFDTransport> file_transport_;
   boost::shared_ptr<TCompactProtocol> protocol_;
   
-  // Walker for the schema.  Parquet requires columns specified as a
-  // vector that is the depth first preorder traversal of the schema,
-  // which is what this method does.
-  void DepthFirstSchemaTraversal(const ParquetColumn* root_column,
-				 ParquetColumnWalker* callback);
-
   // A bit indicating that we've initialized OK, defined the schema,
   // and are ready to start accepting & writing data.
   bool ok_;
