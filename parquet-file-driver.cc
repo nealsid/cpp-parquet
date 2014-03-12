@@ -28,6 +28,9 @@ int main(int argc, char* argv[]) {
     data[i] = i;
   }
   one_column->AddRows(data, 500);
+  for (int i = 0; i < 500; ++i) {
+    data[i] = 500 + i;
+  }
   two_column->AddRows(data, 500);
   output.Flush();
 }

@@ -26,6 +26,10 @@ ParquetColumn::ParquetColumn(const string& column_name,
     // the class.
     bytes_per_datum_(BytesForDataType(data_type)),
     data_ptr_(data_buffer_),
+    repetition_levels_(new uint8_t[kDataBufferSize / BytesForDataType(data_type)]),
+    current_repetition_level_(0),
+    definition_levels_(new uint8_t[kDataBufferSize / BytesForDataType(data_type)]),
+    current_definition_level_(0),
     column_write_offset_(-1L) {
 }
 
@@ -71,6 +75,16 @@ void ParquetColumn::AddRows(void* buf, uint32_t n) {
   memcpy(data_buffer_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
   num_rows_ += n;
+  for (int i = 0; i < n; ++i) {
+    repetition_levels_.push_back(current_repetition_level_);
+  }
+}
+
+// Adds repeated data to this column.  All data is considered part
+// of the same record.
+void ParquetColumn::AddRepeatedData(void *buf, uint32_t n) {
+  LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REPEATED) <<
+    "Cannot add repeated data to a non-repeated column: " << Name();
 }
 
 uint32_t ParquetColumn::NumRows() const {
@@ -97,8 +111,6 @@ uint8_t ParquetColumn::BytesForDataType(Type::type dataType) {
 }
 
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
-  LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REQUIRED)
-    << "Fields can only be required at this time.";
   LOG_IF(FATAL, Encoding() != Encoding::PLAIN)
     << "Encoding can only be plain at this time.";
   LOG_IF(FATAL, CompressionCodec() != CompressionCodec::UNCOMPRESSED)
@@ -125,10 +137,10 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   page_header.__set_data_page_header(data_header);
   uint32_t page_header_length = page_header.write(protocol);
 
-  // We don't write definition levels, because, for now, fields are
-  // required.
   // We don't write repetition levels, because, for now, fields are
   // singular fields.
+  // We don't write definition levels, because, for now, fields are
+  // required.
   
   for (int i = 0; i < NumRows(); ++i) {
     LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
