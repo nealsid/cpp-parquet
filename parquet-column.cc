@@ -10,10 +10,10 @@ using apache::thrift::protocol::TCompactProtocol;
 namespace parquet_file {
 
 ParquetColumn::ParquetColumn(const string& column_name,
-			     parquet::Type::type data_type,
-			     FieldRepetitionType::type repetition_type,
-			     Encoding::type encoding,
-			     CompressionCodec::type compression_codec)
+                             parquet::Type::type data_type,
+                             FieldRepetitionType::type repetition_type,
+                             Encoding::type encoding,
+                             CompressionCodec::type compression_codec)
   : column_name_(column_name),
     repetition_type_(repetition_type),
     encoding_(encoding),
@@ -26,10 +26,8 @@ ParquetColumn::ParquetColumn(const string& column_name,
     // the class.
     bytes_per_datum_(BytesForDataType(data_type)),
     data_ptr_(data_buffer_),
-    repetition_levels_(new uint8_t[kDataBufferSize / BytesForDataType(data_type)]),
     current_repetition_level_(0),
-    definition_levels_(new uint8_t[kDataBufferSize / BytesForDataType(data_type)]),
-    current_definition_level_(0),
+    current_definition_level_(1),
     column_write_offset_(-1L) {
 }
 
@@ -77,6 +75,7 @@ void ParquetColumn::AddRows(void* buf, uint32_t n) {
   num_rows_ += n;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(current_repetition_level_);
+    definition_levels_.push_back(current_definition_level_);
   }
 }
 
@@ -85,6 +84,32 @@ void ParquetColumn::AddRows(void* buf, uint32_t n) {
 void ParquetColumn::AddRepeatedData(void *buf, uint32_t n) {
   LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REPEATED) <<
     "Cannot add repeated data to a non-repeated column: " << Name();
+  size_t num_bytes = n * bytes_per_datum_;
+  memcpy(data_buffer_, buf, n * bytes_per_datum_);
+  data_ptr_ += num_bytes;
+  ++num_rows_;
+  repetition_levels_.push_back(current_repetition_level_);
+  ++current_repetition_level_;
+  for (int i = 1; i < n; ++i) {
+    repetition_levels_.push_back(current_repetition_level_);
+  }
+}
+
+void ParquetColumn::RLE(const vector<uint8_t>& numbers, vector<uint32_t>* output) {
+  for (int i = 0; i < numbers.size();) {
+    int current_num = numbers.at(i);
+    int j = 0;
+    for(j = i + 1; j < numbers.size(); ++j) {
+      if (numbers.at(j) == current_num) {
+        continue;
+      } else {
+        break;
+      }
+    }
+    output->push_back(j - i);
+    output->push_back(current_num);
+    i = j;
+  }
 }
 
 uint32_t ParquetColumn::NumRows() const {
@@ -117,13 +142,36 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     << "Compression is not supported at this time.";
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
+  uint32_t repetition_level_size = 0, definition_level_size = 0;
 
+  vector<uint32_t> encoded_repetition_levels, encoded_definition_levels;
+  if (RepetitionType() != FieldRepetitionType::REQUIRED) {
+    VLOG(2) << "Non-required field, encoding repetition levels";
+    RLE(repetition_levels_, &encoded_repetition_levels);
+    repetition_level_size = encoded_repetition_levels.size() * sizeof(uint32_t);
+    VLOG(2) << "\tRepetition levels data size in bytes: " << repetition_level_size;
+    for (int i = 0; i < encoded_repetition_levels.size(); i += 2) {
+      VLOG(2) << encoded_repetition_levels.at(i) << " " << encoded_repetition_levels.at(i+1);
+    }
+
+    RLE(definition_levels_, &encoded_definition_levels);
+    definition_level_size = encoded_definition_levels.size() * sizeof(uint32_t);
+    VLOG(2) << "\tDefinition levels data size in bytes: " << definition_level_size;
+    for (int i = 0; i < encoded_definition_levels.size(); i += 2) {
+      VLOG(2) << encoded_definition_levels.at(i) << " " << encoded_definition_levels.at(i+1);
+    }
+  }
+  
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);
   uint32_t total_data_bytes = BytesForDataType(data_type_) * NumRows();
-  page_header.__set_uncompressed_page_size(total_data_bytes);
+  page_header.__set_uncompressed_page_size(repetition_level_size + 
+                                           definition_level_size + 
+                                           total_data_bytes);
   // Obviously, this is a stop gap until compression support is added.
-  page_header.__set_compressed_page_size(total_data_bytes);
+  page_header.__set_compressed_page_size(repetition_level_size +
+                                         definition_level_size + 
+                                         total_data_bytes);
 
   DataPageHeader data_header;
   data_header.__set_num_values(NumRows());
@@ -137,8 +185,18 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   page_header.__set_data_page_header(data_header);
   uint32_t page_header_length = page_header.write(protocol);
 
-  // We don't write repetition levels, because, for now, fields are
-  // singular fields.
+  if (repetition_level_size > 0) {
+    for(auto i : encoded_repetition_levels) {
+      write(fd, &i, sizeof(uint32_t));
+    }
+  }
+
+  if (definition_level_size > 0) {
+    for(auto i : encoded_definition_levels) {
+      write(fd, &i, sizeof(uint32_t));
+    }
+  }
+
   // We don't write definition levels, because, for now, fields are
   // required.
   

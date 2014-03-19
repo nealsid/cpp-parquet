@@ -1,6 +1,18 @@
 cpp-parquet
 ===========
 
-Just playing around with writing Parquet files.  To compile, you need Thrift, Google Log, and Parquet-format.
+Just playing around with writing Parquet files.  
 
-$ g++ --std=c++11 -o parquet-file-driver parquet-column.cc parquet-file-driver.cc parquet-file.cc ../../parquet-format/generated/gen-cpp/parquet_{types,constants}.cpp -lthrift -lglog -I../../parquet-format/generated/gen-cpp/
+Now includes CMake build.  You should just need to do the normal CMake process:
+
+```sh
+$ mkdir build
+$ cd build && cmake ../ && make
+```
+
+There is one hiccup with external deps, though. If you blow away the build directory, and then rereun CMake, it won't re-install Google Glog from it's build directory because the source hasn't changed.  You can just rm the `/tmp/google-glog` directory away so that it's refetched/rebuilt, or do:
+
+```sh
+cd /tmp/google-glog/src/google-glog-build/ 
+make install
+```
