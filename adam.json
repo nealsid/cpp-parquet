@@ -1,0 +1,8 @@
+{
+    "type" : "record",
+    "name" : "ADAMContig",
+    "fields" : [ {
+	"name" : "contigName",
+	"type" : "string"
+    } ]
+}
