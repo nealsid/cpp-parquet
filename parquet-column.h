@@ -110,11 +110,11 @@ public:
   // uint16_t means that we can only support schemas that nest up to
   // 65536 repeated fields.  "64k nested fields ought to be enough for
   // anybody."
-  uint16_t current_repetition_level_;
+  uint16_t max_repetition_level_;
   // Definition level array.  Also RLE before being written.
   vector<uint8_t> definition_levels_;
   // Integer representing current definition level.
-  uint16_t current_definition_level_;
+  uint16_t max_definition_level_;
   // The offset into the file where column data is written.
   off_t column_write_offset_;
 };
