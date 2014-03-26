@@ -31,7 +31,8 @@ class ParquetColumnWalker;
 class ParquetFile {
  public:
   ParquetFile(string file_base, int num_files = 1);
-  void SetSchema(const vector<ParquetColumn*>& schema);
+  void SetSchema(ParquetColumn* root);
+  const ParquetColumn* Root() const;
   void Flush();
   void Close();
   bool IsOK() { return ok_; }
@@ -39,11 +40,11 @@ class ParquetFile {
   // Walker for the schema.  Parquet requires columns specified as a
   // vector that is the depth first preorder traversal of the schema,
   // which is what this method does.
-  void DepthFirstSchemaTraversal(const ParquetColumn* root_column,
+  void DepthFirstSchemaTraversal(ParquetColumn* root_column,
 				 ParquetColumnWalker* callback);
 
 
-  // Does not include root.
+  // A vector representing the DFS traversal of the columns.
   vector<ParquetColumn*> file_columns_;
   // Number of rows in all columns.
   int num_rows_;
@@ -76,7 +77,7 @@ class ParquetColumnWalker {
   // vector.
   ParquetColumnWalker(vector<SchemaElement>* dfsVector);
 
-  void ColumnCallback(const ParquetColumn* column);
+  void ColumnCallback(ParquetColumn* column);
  private:
   // SchemaElement is a POD object, which is why we store the actual
   // message and not a pointer.

@@ -4,9 +4,11 @@
 #include <avro/ValidSchema.hh>
 #include <glog/logging.h>
 #include "parquet-column.h"
+#include "parquet-file.h"
 #include <fstream>
 
 using parquet_file::ParquetColumn;
+using parquet_file::ParquetFile;
 
 AvroSchemaWalker::AvroSchemaWalker(const string& json_file) {
   std::ifstream in(json_file.c_str());
@@ -35,8 +37,7 @@ void AvroSchemaWalker::StartWalk(const NodePtr node, const string& name,
 
 class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
 public:
-  AvroSchemaToParquetSchemaConverter(vector<ParquetColumn*>& output_vector) :
-    output_vector_(output_vector) {
+  AvroSchemaToParquetSchemaConverter() {
   }
 
   void* AtNode(const NodePtr& node, const string& name, int level, 
@@ -48,13 +49,10 @@ public:
       parent->AddChild(column);
     }
 
-    output_vector_.push_back(column);
     VLOG(2) << column->ToString();
     return column;
   }
 private:
-  vector<ParquetColumn*>& output_vector_;
-
   ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node, 
 					    const string& name, 
 					    int level) const {
@@ -77,10 +75,6 @@ int main(int argc, char* argv[]) {
       "Specify JSON schema file on command line";
     return 1;
   }
-  vector<ParquetColumn*> parquet_schema;
   AvroSchemaWalker walker(argv[1]);
-  walker.WalkSchema(new AvroSchemaToParquetSchemaConverter(parquet_schema));
-  for (auto c : parquet_schema) {
-    VLOG(2) << c->ToString();
-  }
+  walker.WalkSchema(new AvroSchemaToParquetSchemaConverter());
 }

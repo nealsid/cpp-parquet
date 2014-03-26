@@ -31,7 +31,7 @@ ParquetColumn::ParquetColumn(const string& column_name,
     column_write_offset_(-1L) {
 }
 
-const vector<const ParquetColumn*>& ParquetColumn::Children() const {
+const vector<ParquetColumn*>& ParquetColumn::Children() const {
   return children_;
 }
 
@@ -133,7 +133,7 @@ uint8_t ParquetColumn::BytesForDataType(Type::type dataType) {
   }
 }
 
-void ParquetColumn::SetChildren(const vector<const ParquetColumn*>& children) {
+void ParquetColumn::SetChildren(const vector<ParquetColumn*>& children) {
   if (children_.size() > 0) {
     LOG(WARNING) << "Clearing pre-existing children in column: " << ToString();
     // NB The memory ownership semantics of children column pointers
@@ -146,7 +146,7 @@ void ParquetColumn::SetChildren(const vector<const ParquetColumn*>& children) {
   children_.assign(children.begin(), children.end());
 }
 
-void ParquetColumn::AddChild(const ParquetColumn* child) {
+void ParquetColumn::AddChild(ParquetColumn* child) {
   children_.push_back(child);
 }
 

@@ -40,9 +40,9 @@ public:
 		CompressionCodec::type compression_codec);
 
   // Set/get the children of this column
-  void SetChildren(const vector<const ParquetColumn*>& children);
-  void AddChild(const ParquetColumn* child);
-  const vector<const ParquetColumn*>& Children() const;
+  void SetChildren(const vector<ParquetColumn*>& children);
+  void AddChild(ParquetColumn* child);
+  const vector<ParquetColumn*>& Children() const;
 
   // Accessors for the reptition type, encoding, type, and name.
   FieldRepetitionType::type RepetitionType() const;
@@ -64,6 +64,8 @@ public:
   void AddNull();
 
   // Flush this column via the protocol provided.
+  // Having Flush() be const is a bit strange, but, technically, it
+  // doesn't modify the class objects.
   void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);
 
   // Generate a Parquet Thrift ColumnMetaData message for this column.
@@ -86,7 +88,7 @@ public:
   // Compression codec for this column
   CompressionCodec::type compression_codec_;
   // A list of columns that are children of this one.
-  vector<const ParquetColumn*> children_;
+  vector<ParquetColumn*> children_;
 
   // This represents the Parquet structures that will track this
   // column on-disk.  For now, we only support one chunk per column.

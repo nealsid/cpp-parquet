@@ -56,9 +56,10 @@ ParquetFile::ParquetFile(string file_base, int num_files) {
   return;
 }
 
-void ParquetFile::DepthFirstSchemaTraversal(const ParquetColumn* root_column,
+void ParquetFile::DepthFirstSchemaTraversal(ParquetColumn* root_column,
                                             ParquetColumnWalker* callback) {
   callback->ColumnCallback(root_column);
+  file_columns_.push_back(root_column);
   const vector<ParquetColumn*>& children = root_column->Children();
   for (ParquetColumn* c : children) {
     DepthFirstSchemaTraversal(root_column, callback);
@@ -122,36 +123,30 @@ void ParquetFile::Flush() {
   VLOG(2) << "Done.";
 }
 
-void ParquetFile::SetSchema(const vector<ParquetColumn*>& schema) {
-  SchemaElement root_column;
-  // Name of the root column is irrelevant, as it's a dummy head node.
-  root_column.__set_name("root");
-  // For now, assume that we only have one level in the schema tree
-  // (i.e. no nesting at the root)
-  root_column.__set_num_children(schema.size());
+void ParquetFile::SetSchema(ParquetColumn* root) {
   // Parquet's metadata needs the schema as a list, which results from
   // a depth-first traversal of the schema as a tree.
   vector<SchemaElement> parquet_schema_vector;
-  parquet_schema_vector.push_back(root_column);
   ParquetColumnWalker* walker = new ParquetColumnWalker(&parquet_schema_vector);
-  for (auto column : schema) {
-    VLOG(2) << column->ToString();
-    DepthFirstSchemaTraversal(column, walker);
-  }
+  VLOG(2) << root->ToString();
+
   LOG_IF(WARNING, file_columns_.size() > 0) 
     << "Internal file columns being reset";
   file_columns_.clear();
-  file_columns_.assign(schema.begin(), schema.end());
+  DepthFirstSchemaTraversal(root, walker);
+
   file_meta_data_.__set_schema(parquet_schema_vector);
+}
+
+const ParquetColumn* ParquetFile::Root() const {
+  return file_columns_.at(0);
 }
 
 ParquetColumnWalker::ParquetColumnWalker(vector<SchemaElement>* dfsVector) 
     : dfsVector_(dfsVector) {
 }
 
-void ParquetColumnWalker::ColumnCallback(const ParquetColumn* column) {
-  // TODO: remove this restriction
-  assert(column->Children().size() == 0);
+void ParquetColumnWalker::ColumnCallback(ParquetColumn* column) {
   SchemaElement schemaElement;
   schemaElement.__set_name(column->Name());
   schemaElement.__set_repetition_type(column->RepetitionType());
