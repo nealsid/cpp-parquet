@@ -26,12 +26,12 @@ ParquetColumn::ParquetColumn(const string& column_name,
     // the class.
     bytes_per_datum_(BytesForDataType(data_type)),
     data_ptr_(data_buffer_),
-    current_repetition_level_(0),
-    current_definition_level_(1),
+    max_repetition_level_(0),
+    max_definition_level_(1),
     column_write_offset_(-1L) {
 }
 
-const vector<ParquetColumn*>& ParquetColumn::Children() const {
+const vector<const ParquetColumn*>& ParquetColumn::Children() const {
   return children_;
 }
 
@@ -74,8 +74,8 @@ void ParquetColumn::AddRows(void* buf, uint32_t n) {
   data_ptr_ += num_bytes;
   num_rows_ += n;
   for (int i = 0; i < n; ++i) {
-    repetition_levels_.push_back(current_repetition_level_);
-    definition_levels_.push_back(current_definition_level_);
+    repetition_levels_.push_back(max_repetition_level_);
+    definition_levels_.push_back(max_definition_level_);
   }
 }
 
@@ -87,11 +87,9 @@ void ParquetColumn::AddRepeatedData(void *buf, uint32_t n) {
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_buffer_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
-  ++num_rows_;
-  repetition_levels_.push_back(current_repetition_level_);
-  ++current_repetition_level_;
+  repetition_levels_.push_back(max_repetition_level_);
   for (int i = 1; i < n; ++i) {
-    repetition_levels_.push_back(current_repetition_level_);
+    repetition_levels_.push_back(max_repetition_level_);
   }
 }
 
@@ -133,6 +131,23 @@ uint8_t ParquetColumn::BytesForDataType(Type::type dataType) {
   default:
     assert(0);
   }
+}
+
+void ParquetColumn::SetChildren(const vector<const ParquetColumn*>& children) {
+  if (children_.size() > 0) {
+    LOG(WARNING) << "Clearing pre-existing children in column: " << ToString();
+    // NB The memory ownership semantics of children column pointers
+    // needs to be worked out, but I know in this code path there is a
+    // memory leak so I will just call delete here.
+    for (auto c : children_) {
+      delete c;
+    }
+  }
+  children_.assign(children.begin(), children.end());
+}
+
+void ParquetColumn::AddChild(const ParquetColumn* child) {
+  children_.push_back(child);
 }
 
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {

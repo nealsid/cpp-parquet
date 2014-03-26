@@ -3,6 +3,6 @@
     "name" : "ADAMContig",
     "fields" : [ {
 	"name" : "contigName",
-	"type" : "string"
+	"type" : "int"
     } ]
 }

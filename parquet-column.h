@@ -40,8 +40,9 @@ public:
 		CompressionCodec::type compression_codec);
 
   // Set/get the children of this column
-  void SetChildren(const vector<ParquetColumn*>& child);
-  const vector<ParquetColumn*>& Children() const;
+  void SetChildren(const vector<const ParquetColumn*>& children);
+  void AddChild(const ParquetColumn* child);
+  const vector<const ParquetColumn*>& Children() const;
 
   // Accessors for the reptition type, encoding, type, and name.
   FieldRepetitionType::type RepetitionType() const;
@@ -85,7 +86,7 @@ public:
   // Compression codec for this column
   CompressionCodec::type compression_codec_;
   // A list of columns that are children of this one.
-  vector<ParquetColumn*> children_;
+  vector<const ParquetColumn*> children_;
 
   // This represents the Parquet structures that will track this
   // column on-disk.  For now, we only support one chunk per column.
