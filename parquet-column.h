@@ -30,9 +30,12 @@ namespace parquet_file {
   // message could be represented.
   class ParquetColumn {
    public:
-    // Takes a name and the reptition type (the enum is defined by
-    // Parquet)
-    ParquetColumn(const string& name, Type::type data_type,
+    // Constructor for ParquetColumn.  name is a vector of column
+    // names from the root of the schema to the current node.  Type is
+    // the Parquet data type, repetition_type is the repetition type
+    // for the column (repeated, required, etc), and encoding &
+    // compression are as they are in Parquet.
+    ParquetColumn(const vector<string>& name, Type::type data_type,
                   FieldRepetitionType::type repetition_type,
                   Encoding::type encoding,
                   CompressionCodec::type compression_codec);
@@ -48,6 +51,9 @@ namespace parquet_file {
     Type::type Type() const;
     CompressionCodec::type CompressionCodec() const;
     string Name() const;
+    // A '.'-joined string of the path components (i.e. the names of
+    // each containing column from the schema tree root to this leaf)
+    string FullSchemaPath() const;
 
     // Method that returns the number of bytes for a given Parquet data type
     static uint8_t BytesForDataType(Type::type dataType);
@@ -62,8 +68,6 @@ namespace parquet_file {
     void AddNull();
 
     // Flush this column via the protocol provided.
-    // Having Flush() be const is a bit strange, but, technically, it
-    // doesn't modify the class objects.
     void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);
 
     // Generate a Parquet Thrift ColumnMetaData message for this column.
@@ -75,8 +79,9 @@ namespace parquet_file {
     // Run-length encode a vector of numbers
     void RLE(const vector<uint8_t>& numbers, vector<uint32_t>* output);
 
-    // The name of the column.
-    string column_name_;
+    // The name of the column as a vector of strings from the root to
+    // the current node.
+    const vector<string> column_name_;
     // Parquet type indicating whether the field is required, or
     // repeated, etc.
     FieldRepetitionType::type repetition_type_;

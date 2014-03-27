@@ -62,13 +62,12 @@ void ParquetFile::DepthFirstSchemaTraversal(ParquetColumn* root_column,
   file_columns_.push_back(root_column);
   const vector<ParquetColumn*>& children = root_column->Children();
   for (ParquetColumn* c : children) {
-    DepthFirstSchemaTraversal(root_column, callback);
+    DepthFirstSchemaTraversal(c, callback);
   }
 }
 
 void ParquetFile::Flush() {
   boost::shared_ptr<TFDTransport> stderr_transport_ptr(new TFDTransport(2));
-  TJSONProtocol json_output(stderr_transport_ptr);
 
   LOG_IF(FATAL, file_columns_.size() == 0) <<
     "No columns to flush";
@@ -78,15 +77,18 @@ void ParquetFile::Flush() {
   // file already.
   VLOG(2) << "Offset at beginning of flush: " << to_string(current_offset);
   assert(current_offset == strlen(kParquetMagicBytes));
-  ParquetColumn* first_column = *file_columns_.begin();
+  ParquetColumn* first_column = *(file_columns_.begin() + 1);
   uint32_t num_rows = first_column->NumRows();
-  LOG_IF(FATAL, num_rows == 0) 
+  LOG_IF(WARNING, num_rows == 0) 
     << "Number of rows in first column (name: " 
-    << first_column->Name() << ") is 0";
-  for (auto column : file_columns_) {
+    << first_column->FullSchemaPath() << ") is 0";
+  for (auto column_iter = file_columns_.begin() + 1;
+       column_iter != file_columns_.end();
+       ++column_iter) {
+    auto column = *column_iter;
     LOG_IF(FATAL, column->NumRows() != num_rows)
       << "Columns must have the same number of rows.  "
-      << "Differing column: " << column->Name()
+      << "Differing column: " << column->FullSchemaPath()
       << ", Number of rows: " << column->NumRows()
       << ", expected number of rows: " << num_rows;
   }
@@ -97,8 +99,11 @@ void ParquetFile::Flush() {
   row_group.__set_num_rows(num_rows);
   row_group.__set_total_byte_size(0);
   vector<ColumnChunk> column_chunks;
-  for (auto column : file_columns_) {
-    VLOG(2) << "Writing column: " << column->Name();
+  for (auto column_iter = file_columns_.begin() + 1 ;
+       column_iter != file_columns_.end();
+       ++column_iter) {
+    auto column = *column_iter;
+    VLOG(2) << "Writing column: " << column->FullSchemaPath();
     VLOG(2) << "\t" << column->ToString();
     column->Flush(fd_, protocol_.get());
     ColumnMetaData column_metadata = column->ParquetColumnMetaData();
@@ -119,7 +124,6 @@ void ParquetFile::Flush() {
   VLOG(2) << "File metadata length: " << file_metadata_length;
   write(fd_, &file_metadata_length, sizeof(file_metadata_length));
   write(fd_, kParquetMagicBytes, strlen(kParquetMagicBytes));
-  file_meta_data_.write(&json_output);
   VLOG(2) << "Done.";
 }
 

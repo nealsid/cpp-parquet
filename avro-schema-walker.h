@@ -11,21 +11,22 @@
 using avro::NodePtr;
 using avro::ValidSchema;
 using std::string;
+using std::vector;
 
 class AvroSchemaCallback {
  public:
-  virtual void* AtNode(const NodePtr& node, const string& name, 
-		      int level, void* parent_data) const = 0;
+  virtual void* AtNode(const NodePtr& node, vector<string>& name, 
+		      int level, void* parent_data) = 0;
 } ;
 
 class AvroSchemaWalker {
  public:
   AvroSchemaWalker(const string& json_file);
-  void WalkSchema(const AvroSchemaCallback* callback) const;
-  void StartWalk(const NodePtr node, const string& name,
-		 int level, const AvroSchemaCallback* callback,
-		 void* parent_data) const;
+  void WalkSchema(AvroSchemaCallback* callback) const;
  private:
+  void StartWalk(const NodePtr node, vector<string>& name,
+		 int level, AvroSchemaCallback* callback,
+		 void* parent_data) const;
   avro::ValidSchema schema_;
 };
 

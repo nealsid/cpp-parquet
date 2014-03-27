@@ -1,15 +1,17 @@
 // Copyright 2014 Mount Sinai School of Medicine.
 
 #include "parquet-column.h"
-#include "thrift/protocol/TCompactProtocol.h"
 
+#include <boost/algorithm/string/join.hpp>
+#include <thrift/protocol/TCompactProtocol.h>
+
+using apache::thrift::protocol::TCompactProtocol;
 using parquet::PageHeader;
 using parquet::PageType;
-using apache::thrift::protocol::TCompactProtocol;
 
 namespace parquet_file {
 
-ParquetColumn::ParquetColumn(const string& column_name,
+ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              parquet::Type::type data_type,
                              FieldRepetitionType::type repetition_type,
                              Encoding::type encoding,
@@ -51,14 +53,26 @@ CompressionCodec::type ParquetColumn::CompressionCodec() const {
   return compression_codec_;
 }
 
+string ParquetColumn::FullSchemaPath() const {
+  if (column_name_.size() > 0) {
+    return boost::algorithm::join(column_name_, ".");
+  } else {
+    return "";
+  }
+}
+
 string ParquetColumn::Name() const {
-  return column_name_;
+  if (column_name_.size() > 0) {
+    return column_name_.back();
+  } else {
+    return "";
+  }
 }
 
 string ParquetColumn::ToString() const {
   // TODO: there has got to be an alternative to BOOST that supports
   // sane string concatenation and formatting.
-  return this->Name() + "/" +
+  return this->FullSchemaPath() + "/" +
     parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->RepetitionType())
     + "/" + to_string(Children().size()) + " children"
     + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->Type())
@@ -83,7 +97,7 @@ void ParquetColumn::AddRows(void* buf, uint32_t n) {
 // of the same record.
 void ParquetColumn::AddRepeatedData(void *buf, uint32_t n) {
   LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REPEATED) <<
-    "Cannot add repeated data to a non-repeated column: " << Name();
+    "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_buffer_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
@@ -230,7 +244,7 @@ ColumnMetaData ParquetColumn::ParquetColumnMetaData() const {
   uint32_t total_data_bytes = BytesForDataType(data_type_) * NumRows();
   column_metadata.__set_type(Type());
   column_metadata.__set_encodings({Encoding()});
-  column_metadata.__set_path_in_schema({Name()});
+  column_metadata.__set_path_in_schema(column_name_);
   column_metadata.__set_codec(CompressionCodec());
   column_metadata.__set_num_values(NumRows());
   column_metadata.__set_total_uncompressed_size(total_data_bytes);

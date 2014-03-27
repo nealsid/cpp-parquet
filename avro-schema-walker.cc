@@ -15,57 +15,69 @@ AvroSchemaWalker::AvroSchemaWalker(const string& json_file) {
   avro::compileJsonSchema(in, schema_);
 }
 
-void AvroSchemaWalker::WalkSchema(const AvroSchemaCallback* callback) const {
+void AvroSchemaWalker::WalkSchema(AvroSchemaCallback* callback) const {
   const NodePtr& root = schema_.root();
-  StartWalk(root, root->name().fullname(), 0, callback, NULL);
+  vector<string> names;
+  StartWalk(root, names, 0, callback, NULL);
 }
 
-void AvroSchemaWalker::StartWalk(const NodePtr node, const string& name, 
-				 int level, 
-				 const AvroSchemaCallback* callback,
+void AvroSchemaWalker::StartWalk(const NodePtr node, vector<string>& names,
+				 int level,
+				 AvroSchemaCallback* callback,
 				 void* data_for_children) const {
-  void* parent_data = callback->AtNode(node, name, level, data_for_children);
+  void* parent_data = callback->AtNode(node, names, level, data_for_children);
   for (int i = 0; i < node->leaves(); ++i) {
     // For some reason the leaf nodes in an Avro Schema tree are not
     // very useful - they only contain type information, but not the
     // name.  So we read the child name from the parent and call use
     // that in the callback for the child.
-    StartWalk(node->leafAt(i), node->nameAt(i), level + 1, callback, 
+    names.push_back(node->nameAt(i));
+    StartWalk(node->leafAt(i), names, level + 1, callback,
 	      parent_data);
+    names.pop_back();
   }
 }
 
 class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
-public:
-  AvroSchemaToParquetSchemaConverter() {
+ public:
+  AvroSchemaToParquetSchemaConverter() :
+    root_(nullptr) {
   }
 
-  void* AtNode(const NodePtr& node, const string& name, int level, 
-	       void* parent_data) const {
-    ParquetColumn* column = AvroNodePtrToParquetColumn(node, name, level);
+  void* AtNode(const NodePtr& node, vector<string>& names, int level,
+	       void* parent_data) {
+    ParquetColumn* column = AvroNodePtrToParquetColumn(node, names, level);
 
     if (parent_data != nullptr) {
       ParquetColumn* parent = (ParquetColumn*) parent_data;
       parent->AddChild(column);
+    } else {
+      LOG_IF(WARNING, root_ != nullptr) << "Root being overwritten";
+      root_ = column;
     }
 
     VLOG(2) << column->ToString();
     return column;
   }
-private:
-  ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node, 
-					    const string& name, 
+
+  ParquetColumn* Root() {
+    return root_;
+  }
+ private:
+  ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node,
+					    const vector<string>& name,
 					    int level) const {
     avro::Type avro_type = node->type();
-    // LOG_IF(FATAL, avro_type != avro::AVRO_INT) 
+    // LOG_IF(FATAL, avro_type != avro::AVRO_INT)
     //   << "Non-integers are not supported today";
     ParquetColumn* c = new ParquetColumn(name, parquet::Type::INT32,
-					 FieldRepetitionType::REQUIRED, 
+					 FieldRepetitionType::REQUIRED,
 					 Encoding::PLAIN,
 					 CompressionCodec::UNCOMPRESSED);
 
     return c;
   }
+  ParquetColumn* root_;
 };
 
 int main(int argc, char* argv[]) {
@@ -76,5 +88,10 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   AvroSchemaWalker walker(argv[1]);
-  walker.WalkSchema(new AvroSchemaToParquetSchemaConverter());
+  AvroSchemaToParquetSchemaConverter* converter = new AvroSchemaToParquetSchemaConverter();
+  walker.WalkSchema(converter);
+  ParquetColumn* root = converter->Root();
+  ParquetFile* parquet_file = new ParquetFile("test.parquet");
+  parquet_file->SetSchema(root);
+  parquet_file->Flush();
 }

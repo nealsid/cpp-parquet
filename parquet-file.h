@@ -52,7 +52,7 @@ class ParquetFile {
   // Parquet Thrift structure that has metadata about the entire file.
   FileMetaData file_meta_data_;
 
-  /* Variables that represent file system location and data. */
+  // Variables that represent file system location and data.
   string file_base_;
   int num_files_;
   int fd_;

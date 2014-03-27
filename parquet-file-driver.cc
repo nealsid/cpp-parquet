@@ -14,18 +14,24 @@ int main(int argc, char* argv[]) {
   ParquetFile output(argv[1]);
 
   ParquetColumn* one_column = 
-    new ParquetColumn("AllInts", parquet::Type::INT32, 
+    new ParquetColumn({"AllInts"}, parquet::Type::INT32, 
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* two_column = 
-    new ParquetColumn("AllInts1", parquet::Type::INT32, 
+    new ParquetColumn({"AllInts1"}, parquet::Type::INT32, 
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
 
-  output.SetSchema({one_column, two_column});
+  ParquetColumn* root_column = 
+    new ParquetColumn({"root"}, parquet::Type::INT32, 
+		      FieldRepetitionType::REQUIRED, 
+		      Encoding::PLAIN,
+		      CompressionCodec::UNCOMPRESSED);
+  root_column->SetChildren({one_column, two_column});
+  output.SetSchema(root_column);
 
   uint32_t data[500];
   for (int i = 0; i < 500; ++i) {

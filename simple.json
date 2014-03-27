@@ -1,6 +1,6 @@
 {
     "type": "record", 
-    "name": "cpx",
+    "name": "root",
     "fields" : [
         {
 	    "name": "re", 
