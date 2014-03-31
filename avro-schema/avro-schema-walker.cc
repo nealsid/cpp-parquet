@@ -1,4 +1,4 @@
-#include <avro/avro-schema-walker.h>
+#include <avro-schema/avro-schema-walker.h>
 #include <avro/Compiler.hh>
 #include <avro/Types.hh>
 #include <avro/ValidSchema.hh>

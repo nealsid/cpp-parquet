@@ -1,5 +1,5 @@
+#include <avro-schema/avro-schema-walker.h>
 #include <glog/logging.h>
-#include <avro/avro-schema-walker.h>
 #include <parquet-file/parquet-column.h>
 #include <parquet-file/parquet-file.h>
 
