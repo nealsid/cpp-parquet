@@ -32,8 +32,6 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     // the class.
     bytes_per_datum_(BytesForDataType(data_type)),
     data_ptr_(data_buffer_),
-    max_repetition_level_(0),
-    max_definition_level_(1),
     column_write_offset_(-1L) {
 }
 

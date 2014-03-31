@@ -1,4 +1,4 @@
-#include "parquet-file.h"
+#include <parquet-file/parquet-file.h>
 #include <glog/logging.h>
 
 using parquet_file::ParquetColumn;
@@ -15,18 +15,21 @@ int main(int argc, char* argv[]) {
 
   ParquetColumn* one_column = 
     new ParquetColumn({"AllInts"}, parquet::Type::INT32, 
+		      1, 1,
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* two_column = 
     new ParquetColumn({"AllInts1"}, parquet::Type::INT32, 
+		      1, 1,
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* root_column = 
     new ParquetColumn({"root"}, parquet::Type::INT32, 
+		      1, 1,
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
