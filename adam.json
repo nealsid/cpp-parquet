@@ -1,8 +1,31 @@
 {
     "type" : "record",
-    "name" : "ADAMContig",
-    "fields" : [ {
-	"name" : "contigName",
-	"type" : "int"
-    } ]
+    "name" : "ADAMRecord",
+    "fields" : [ 
+	{
+	    "name" : "referenceName",
+	    "type" : "int"
+	},
+	{
+	    "name" : "referenceId",
+	    "type" : "int"
+	}, 
+	{
+	    "name" : "start",
+	    "type" : "int"
+	}, 
+	{
+	    "name" : "mapq",
+	    "type" : "int"
+	}, 
+	{
+	    "name" : "readName",
+	    "type" : "int"
+	}, 
+	{
+	    "name" : "sequence",
+	    "type" : "int"
+	}
+	]
 }
+		 

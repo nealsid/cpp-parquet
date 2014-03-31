@@ -132,13 +132,12 @@ void ParquetFile::SetSchema(ParquetColumn* root) {
   // a depth-first traversal of the schema as a tree.
   vector<SchemaElement> parquet_schema_vector;
   ParquetColumnWalker* walker = new ParquetColumnWalker(&parquet_schema_vector);
-  VLOG(2) << root->ToString();
-
   LOG_IF(WARNING, file_columns_.size() > 0) 
     << "Internal file columns being reset";
   file_columns_.clear();
   DepthFirstSchemaTraversal(root, walker);
-
+  VLOG(2) << root->ToString();
+  
   file_meta_data_.__set_schema(parquet_schema_vector);
 }
 

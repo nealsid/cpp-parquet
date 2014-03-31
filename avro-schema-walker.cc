@@ -46,7 +46,28 @@ class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
 
   void* AtNode(const NodePtr& node, vector<string>& names, int level,
 	       void* parent_data) {
-    ParquetColumn* column = AvroNodePtrToParquetColumn(node, names, level);
+    // This is a very ugly hack.  Normally, Parquet requires fields to
+    // have a dot-joined name of the schema path in the
+    // metadata. I.e. "a.b.c".  This is accomplished by the "names"
+    // parameter, which is a vector of strings that is appended to as
+    // the depth-first-traversal of the schema happens.  As a special
+    // case, this schema path name should NOT contain the outer
+    // message name.  However, if we don't embed the outer message
+    // name as the root column's name, tools like parquet-schema (or
+    // presumably, anything that reads parquet), won't be able to know
+    // the name of the message contained in the file, which isn't
+    // horrible, but is a regression compared to other tools).  So we
+    // do this special hack to make sure the root column has the outer
+    // message name, but also ensure that the outer message name is
+    // not part of the schema path of any fields further down in the
+    // schema tree.
+    ParquetColumn* column = nullptr;
+    if (level == 0 && parent_data == nullptr && names.size() == 0) {
+      vector<string> outer_message_name = {node->name().fullname()};
+      column = AvroNodePtrToParquetColumn(node, outer_message_name, level);
+    } else {
+      column = AvroNodePtrToParquetColumn(node, names, level);
+    }
 
     if (parent_data != nullptr) {
       ParquetColumn* parent = (ParquetColumn*) parent_data;
