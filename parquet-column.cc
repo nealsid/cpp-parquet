@@ -13,11 +13,15 @@ namespace parquet_file {
 
 ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              parquet::Type::type data_type,
+			     uint16_t max_repetition_level,
+			     uint16_t max_definition_level,
                              FieldRepetitionType::type repetition_type,
                              Encoding::type encoding,
                              CompressionCodec::type compression_codec)
   : column_name_(column_name),
     repetition_type_(repetition_type),
+    max_repetition_level_(max_repetition_level),
+    max_definition_level_(max_definition_level),
     encoding_(encoding),
     data_type_(data_type),
     num_rows_(0),

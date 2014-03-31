@@ -36,6 +36,8 @@ namespace parquet_file {
     // for the column (repeated, required, etc), and encoding &
     // compression are as they are in Parquet.
     ParquetColumn(const vector<string>& name, Type::type data_type,
+		  uint16_t max_repetition_level,
+		  uint16_t max_definition_level,
                   FieldRepetitionType::type repetition_type,
                   Encoding::type encoding,
                   CompressionCodec::type compression_codec);
@@ -113,14 +115,14 @@ namespace parquet_file {
     unsigned char* data_ptr_;
     // Repetition level array. Run-length encoded before being written.
     vector<uint8_t> repetition_levels_;
-    // Integer representing current repetition level.  Keeping it as
+    // Integer representing max repetition level.  Keeping it as
     // uint16_t means that we can only support schemas that nest up to
     // 65536 repeated fields.  "64k nested fields ought to be enough for
     // anybody."
     uint16_t max_repetition_level_;
     // Definition level array.  Also RLE before being written.
     vector<uint8_t> definition_levels_;
-    // Integer representing current definition level.
+    // Integer representing max definition level for this field.
     uint16_t max_definition_level_;
     // The offset into the file where column data is written.
     off_t column_write_offset_;

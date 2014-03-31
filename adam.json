@@ -1,31 +1,40 @@
-{
+[{
+    "type" : "record",
+    "name" : "ADAMContig",
+    "fields" : [ {
+	"name" : "contigName",
+	"type" : [ "null", "string" ],
+	"default" : null
+    }, {
+	"name" : "contigLength",
+	"type" : [ "null", "long" ],
+	"default" : null
+    }, {
+	"name" : "contigMD5",
+	"type" : [ "null", "string" ],
+	"default" : null
+    }, {
+	"name" : "referenceURL",
+	"type" : [ "null", "string" ],
+	"default" : null
+    } ]
+}, {
     "type" : "record",
     "name" : "ADAMRecord",
-    "fields" : [ 
-	{
-	    "name" : "referenceName",
-	    "type" : "int"
-	},
-	{
-	    "name" : "referenceId",
-	    "type" : "int"
-	}, 
-	{
-	    "name" : "start",
-	    "type" : "int"
-	}, 
-	{
-	    "name" : "mapq",
-	    "type" : "int"
-	}, 
-	{
-	    "name" : "readName",
-	    "type" : "int"
-	}, 
-	{
-	    "name" : "sequence",
-	    "type" : "int"
-	}
-	]
+    "fields" : [ {
+	"name" : "contig",
+	"type" : [ "null", "ADAMContig" ],
+	"doc" : "* These two fields, along with the two\n     * reference{Length, Url} fields at the bottom\n     * of the schema, collectively form the contents\n     * of the Sequence Dictionary embedded in the these\n     * records from the BAM / SAM itself.",
+	"default" : null
+    }, {
+	"name" : "start",
+	"type" : [ "null", "long" ],
+	"default" : null
+    }, {
+	"name" : "mapq",
+	"type" : [ "null", "int" ],
+	"default" : null
+    } 
+]
 }
-		 
+]
