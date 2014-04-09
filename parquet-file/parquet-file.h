@@ -1,18 +1,19 @@
 // Copyright 2014 Mount Sinai School of Medicine
 
-#include "parquet_types.h"
-#include "parquet-column.h"
+#include "./parquet_types.h"
 
 #include <fcntl.h>
 #include <boost/shared_ptr.hpp>
 #include <glog/logging.h>
-#include <string>
+#include <parquet-file/parquet-column.h>
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TFDTransport.h>
+
+#include <string>
 #include <vector>
 
-#ifndef __PARQUET_FILE_H__
-#define __PARQUET_FILE_H__
+#ifndef PARQUET_FILE_PARQUET_FILE_H_
+#define PARQUET_FILE_PARQUET_FILE_H_
 
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
@@ -27,7 +28,7 @@ const uint32_t kDataBytesPerPage = 81920000;
 namespace parquet_file {
 
 class ParquetColumnWalker;
-// Main class that represents a Parquet file on disk. 
+// Main class that represents a Parquet file on disk.
 class ParquetFile {
  public:
   ParquetFile(string file_base, int num_files = 1);
@@ -36,12 +37,13 @@ class ParquetFile {
   void Flush();
   void Close();
   bool IsOK() { return ok_; }
+
  private:
   // Walker for the schema.  Parquet requires columns specified as a
   // vector that is the depth first preorder traversal of the schema,
   // which is what this method does.
   void DepthFirstSchemaTraversal(ParquetColumn* root_column,
-				 ParquetColumnWalker* callback);
+                                 ParquetColumnWalker* callback);
 
 
   // A vector representing the DFS traversal of the columns.
@@ -61,7 +63,7 @@ class ParquetFile {
   // disk.
   boost::shared_ptr<TFDTransport> file_transport_;
   boost::shared_ptr<TCompactProtocol> protocol_;
-  
+
   // A bit indicating that we've initialized OK, defined the schema,
   // and are ready to start accepting & writing data.
   bool ok_;
@@ -75,9 +77,11 @@ class ParquetColumnWalker {
   // A vector in which nodes are appended according to their order in
   // the depth first traversal.  We do not take ownership of the
   // vector.
-  ParquetColumnWalker(vector<SchemaElement>* dfsVector);
+  explicit ParquetColumnWalker(vector<SchemaElement>* dfsVector);
 
+  // Override this, and it will be executed for each column.
   void ColumnCallback(ParquetColumn* column);
+
  private:
   // SchemaElement is a POD object, which is why we store the actual
   // message and not a pointer.
@@ -86,4 +90,4 @@ class ParquetColumnWalker {
 
 }  // namespace parquet_file
 
-#endif  // #ifndef __PARQUET_FILE_H__
+#endif  // PARQUET_FILE_PARQUET_FILE_H_

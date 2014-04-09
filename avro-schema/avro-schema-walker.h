@@ -5,9 +5,10 @@
 #include <parquet-file/parquet-column.h>
 
 #include <string>
+#include <vector>
 
-#ifndef __AVRO_SCHEMA_WALKER_H__
-#define __AVRO_SCHEMA_WALKER_H__
+#ifndef AVRO_SCHEMA_AVRO_SCHEMA_WALKER_H_
+#define AVRO_SCHEMA_AVRO_SCHEMA_WALKER_H_
 
 using avro::NodePtr;
 using avro::ValidSchema;
@@ -19,35 +20,35 @@ namespace parquet_file {
 
 class AvroSchemaCallback {
  public:
-  virtual void* AtNode(const NodePtr& node, vector<string>& name, 
-		      int level, void* parent_data) = 0;
-} ;
+  virtual void* AtNode(const NodePtr& node, const vector<string>& names,
+                      int level, void* parent_data) = 0;
+};
 
 class AvroSchemaWalker {
  public:
-  AvroSchemaWalker(const string& json_file);
+  explicit AvroSchemaWalker(const string& json_file);
   void WalkSchema(AvroSchemaCallback* callback) const;
  private:
-  void StartWalk(const NodePtr node, vector<string>& name,
-		 int level, AvroSchemaCallback* callback,
-		 void* parent_data) const;
+  void StartWalk(const NodePtr node, vector<string>* name,
+                 int level, AvroSchemaCallback* callback,
+                 void* parent_data) const;
   avro::ValidSchema schema_;
 };
 
 class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
  public:
   AvroSchemaToParquetSchemaConverter();
-  void* AtNode(const NodePtr& node, vector<string>& names, int level,
-	       void* parent_data);
+  void* AtNode(const NodePtr& node, const vector<string>& names, int level,
+               void* parent_data);
 
   ParquetColumn* Root();
  private:
   ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node,
-					    const vector<string>& name,
-					    int level) const;
+                                            const vector<string>& names,
+                                            int level) const;
   ParquetColumn* root_;
 };
 
 }  // namespace parquet_file
 
-#endif  // #ifdef __AVRO_SCHEMA_WALKER_H__
+#endif  // AVRO_SCHEMA_AVRO_SCHEMA_WALKER_H_
