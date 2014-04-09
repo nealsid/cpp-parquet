@@ -17,8 +17,22 @@
 #define IMPALA_UTIL_BIT_STREAM_UTILS_INLINE_H
 
 #include <parquet-file/util/bit-stream-utils.h>
+#include <parquet-file/util/compiler-util.h>
 
 namespace impala {
+
+// Returns the ceil of value/divisor
+inline int Ceil(int value, int divisor) {
+  return value / divisor + (value % divisor != 0);
+}
+
+// Returns the 'num_bits' least-significant bits of 'v'.
+inline uint64_t TrailingBits(uint64_t v, int num_bits) {
+  if (UNLIKELY(num_bits == 0)) return 0;
+  if (UNLIKELY(num_bits >= 64)) return v;
+  int n = 64 - num_bits;
+  return (v << n) >> n;
+}
 
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
   // TODO: revisit this limit if necessary (can be raised to 64 by fixing some edge cases)
@@ -43,7 +57,7 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 }
 
 inline void BitWriter::Flush(bool align) {
-  int num_bytes = BitUtil::Ceil(bit_offset_, 8);
+  int num_bytes = Ceil(bit_offset_, 8);
   DCHECK_LE(byte_offset_ + num_bytes, max_bytes_);
   memcpy(buffer_ + byte_offset_, &buffered_values_, num_bytes);
 
@@ -89,7 +103,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 
   if (UNLIKELY(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8)) return false;
 
-  *v = BitUtil::TrailingBits(buffered_values_, bit_offset_ + num_bits) >> bit_offset_;
+  *v = TrailingBits(buffered_values_, bit_offset_ + num_bits) >> bit_offset_;
 
   bit_offset_ += num_bits;
   if (bit_offset_ >= 64) {
@@ -104,7 +118,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
     }
 
     // Read bits of v that crossed into new buffered_values_
-    *v |= BitUtil::TrailingBits(buffered_values_, bit_offset_)
+    *v |= TrailingBits(buffered_values_, bit_offset_)
           << (num_bits - bit_offset_);
   }
   DCHECK_LE(bit_offset_, 64);
@@ -114,7 +128,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 template<typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
   DCHECK_LE(num_bytes, sizeof(T));
-  int bytes_read = BitUtil::Ceil(bit_offset_, 8);
+  int bytes_read = Ceil(bit_offset_, 8);
   if (UNLIKELY(byte_offset_ + bytes_read + num_bytes > max_bytes_)) return false;
 
   // Advance byte_offset to next unread byte and read num_bytes

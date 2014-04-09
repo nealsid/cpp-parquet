@@ -17,8 +17,8 @@
 
 #include <math.h>
 
-#include <parquet-file/util/bit-util.h>
 #include <parquet-file/util/bit-stream-utils.inline.h>
+#include <parquet-file/util/compiler-util.h>
 
 namespace impala {
 
@@ -131,16 +131,16 @@ class RleEncoder {
   static int MinBufferSize(int bit_width) {
     // 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
     int max_literal_run_size = 1 +
-        BitUtil::Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8);
+        Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8);
     // Up to MAX_VLQ_BYTE_LEN indicator and a single 'bit_width' value.
-    int max_repeated_run_size = BitReader::MAX_VLQ_BYTE_LEN + BitUtil::Ceil(bit_width, 8);
+    int max_repeated_run_size = BitReader::MAX_VLQ_BYTE_LEN + Ceil(bit_width, 8);
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
 
   // Returns the maximum byte size it could take to encode 'num_values'.
   static int MaxBufferSize(int bit_width, int num_values) {
-    int bytes_per_run = BitUtil::Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
-    int num_runs = BitUtil::Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
+    int bytes_per_run = Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
+    int num_runs = Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
     int literal_max_size = num_runs + num_runs * bytes_per_run;
     return std::max(MinBufferSize(bit_width), literal_max_size);
   }
@@ -240,7 +240,7 @@ inline bool RleDecoder::Get(T* val) {
     } else {
       repeat_count_ = indicator_value >> 1;
       bool result = bit_reader_.GetAligned<T>(
-          BitUtil::Ceil(bit_width_, 8), reinterpret_cast<T*>(&current_value_));
+          Ceil(bit_width_, 8), reinterpret_cast<T*>(&current_value_));
       DCHECK(result);
     }
   }
@@ -327,7 +327,7 @@ inline void RleEncoder::FlushRepeatedRun() {
   // The lsb of 0 indicates this is a repeated run
   int32_t indicator_value = repeat_count_ << 1 | 0;
   result &= bit_writer_.PutVlqInt(indicator_value);
-  result &= bit_writer_.PutAligned(current_value_, BitUtil::Ceil(bit_width_, 8));
+  result &= bit_writer_.PutAligned(current_value_, Ceil(bit_width_, 8));
   DCHECK(result);
   num_buffered_values_ = 0;
   repeat_count_ = 0;

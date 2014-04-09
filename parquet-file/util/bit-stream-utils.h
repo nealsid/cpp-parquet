@@ -17,10 +17,11 @@
 #define IMPALA_UTIL_BIT_STREAM_UTILS_H
 
 #include <boost/cstdint.hpp>
-#include <parquet-file/util/bit-util.h>
 #include <string.h>
 
 namespace impala {
+
+inline int Ceil(int value, int divisor);
 
 // Utility class to write bit/byte streams.  This class can write data to either be
 // bit packed or byte aligned (and a single stream that has a mix of both).
@@ -43,7 +44,7 @@ class BitWriter {
 
   // The number of current bytes written, including the current byte (i.e. may include a
   // fraction of a byte). Includes buffered values.
-  int bytes_written() const { return byte_offset_ + BitUtil::Ceil(bit_offset_, 8); }
+  int bytes_written() const { return byte_offset_ + Ceil(bit_offset_, 8); }
   uint8_t* buffer() const { return buffer_; }
   int buffer_len() const { return max_bytes_; }
 
@@ -119,7 +120,7 @@ class BitReader {
 
   // Returns the number of bytes left in the stream, not including the current byte (i.e.,
   // there may be an additional fraction of a byte).
-  int bytes_left() { return max_bytes_ - (byte_offset_ + BitUtil::Ceil(bit_offset_, 8)); }
+  int bytes_left() { return max_bytes_ - (byte_offset_ + Ceil(bit_offset_, 8)); }
 
   // Maximum byte length of a vlq encoded int
   static const int MAX_VLQ_BYTE_LEN = 5;
