@@ -1,40 +1,663 @@
-[{
-    "type" : "record",
-    "name" : "ADAMContig",
-    "fields" : [ {
-	"name" : "contigName",
-	"type" : [ "null", "string" ],
-	"default" : null
-    }, {
-	"name" : "contigLength",
-	"type" : [ "null", "long" ],
-	"default" : null
-    }, {
-	"name" : "contigMD5",
-	"type" : [ "null", "string" ],
-	"default" : null
-    }, {
-	"name" : "referenceURL",
-	"type" : [ "null", "string" ],
-	"default" : null
-    } ]
-}, {
+{
+  "protocol" : "ADAM",
+  "namespace" : "org.bdgenomics.adam.avro",
+  "types" : [ {
     "type" : "record",
     "name" : "ADAMRecord",
     "fields" : [ {
-	"name" : "contig",
-	"type" : [ "null", "ADAMContig" ],
-	"doc" : "* These two fields, along with the two\n     * reference{Length, Url} fields at the bottom\n     * of the schema, collectively form the contents\n     * of the Sequence Dictionary embedded in the these\n     * records from the BAM / SAM itself.",
-	"default" : null
+      "name" : "referenceName",
+      "type" : [ "null", "string" ],
+      "doc" : "* These two fields, along with the two\n     * reference{Length, Url} fields at the bottom\n     * of the schema, collectively form the contents\n     * of the Sequence Dictionary embedded in the these\n     * records from the BAM / SAM itself.\n     * TODO: this should be moved to ADAMContig",
+      "default" : null
     }, {
-	"name" : "start",
-	"type" : [ "null", "long" ],
-	"default" : null
+      "name" : "referenceId",
+      "type" : [ "null", "int" ],
+      "default" : null
     }, {
-	"name" : "mapq",
-	"type" : [ "null", "int" ],
-	"default" : null
-    } 
-]
+      "name" : "start",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "mapq",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "readName",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "sequence",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "mateReference",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "mateAlignmentStart",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "cigar",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "qual",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupName",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "readPaired",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "properPair",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "readMapped",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "mateMapped",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "readNegativeStrand",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "mateNegativeStrand",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "firstOfPair",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "secondOfPair",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "primaryAlignment",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "failedVendorQualityChecks",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "duplicateRead",
+      "type" : [ "boolean", "null" ],
+      "default" : false
+    }, {
+      "name" : "mismatchingPositions",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "attributes",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupSequencingCenter",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupDescription",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupRunDateEpoch",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupFlowOrder",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupKeySequence",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupLibrary",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupPredictedMedianInsertSize",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupPlatform",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupPlatformUnit",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupSample",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "mateReferenceId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "referenceLength",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "referenceUrl",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "mateReferenceLength",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "mateReferenceUrl",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "origQual",
+      "type" : [ "null", "string" ],
+      "default" : null
+    } ]
+  }, {
+    "type" : "enum",
+    "name" : "Base",
+    "symbols" : [ "A", "C", "T", "G", "U", "N", "X", "K", "M", "R", "Y", "S", "W", "B", "V", "H", "D" ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMNucleotideContigFragment",
+    "fields" : [ {
+      "name" : "contigName",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "contigId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "description",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "url",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "fragmentSequence",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "contigLength",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "fragmentNumber",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "fragmentStartPosition",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "numberOfFragmentsInContig",
+      "type" : [ "null", "int" ],
+      "default" : null
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMPileup",
+    "fields" : [ {
+      "name" : "referenceName",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "referenceId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "position",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "rangeOffset",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "rangeLength",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "referenceBase",
+      "type" : [ "null", "Base" ],
+      "default" : null
+    }, {
+      "name" : "readBase",
+      "type" : [ "null", "Base" ],
+      "default" : null
+    }, {
+      "name" : "sangerQuality",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "mapQuality",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "numSoftClipped",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "numReverseStrand",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "countAtPosition",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "readName",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "readStart",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "readEnd",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupSequencingCenter",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupDescription",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupRunDateEpoch",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupFlowOrder",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupKeySequence",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupLibrary",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupPredictedMedianInsertSize",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupPlatform",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupPlatformUnit",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "recordGroupSample",
+      "type" : [ "null", "string" ],
+      "default" : null
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMNestedPileup",
+    "fields" : [ {
+      "name" : "pileup",
+      "type" : "ADAMPileup"
+    }, {
+      "name" : "readEvidence",
+      "type" : {
+        "type" : "array",
+        "items" : "ADAMRecord"
+      }
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMContig",
+    "fields" : [ {
+      "name" : "contigId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "contigName",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "contigLength",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "contigMD5",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "referenceURL",
+      "type" : [ "null", "string" ],
+      "default" : null
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMVariant",
+    "fields" : [ {
+      "name" : "contig",
+      "type" : [ "null", "ADAMContig" ],
+      "default" : null
+    }, {
+      "name" : "position",
+      "type" : [ "null", "long" ],
+      "default" : null
+    }, {
+      "name" : "referenceAllele",
+      "type" : "string"
+    }, {
+      "name" : "variantAllele",
+      "type" : "string"
+    } ]
+  }, {
+    "type" : "enum",
+    "name" : "ADAMGenotypeAllele",
+    "symbols" : [ "Ref", "Alt", "NoCall" ]
+  }, {
+    "type" : "enum",
+    "name" : "ADAMGenotypeType",
+    "symbols" : [ "HOM_REF", "HET", "HOM_ALT", "NO_CALL" ]
+  }, {
+    "type" : "record",
+    "name" : "VariantCallingAnnotations",
+    "fields" : [ {
+      "name" : "readDepth",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "downsampled",
+      "type" : [ "null", "boolean" ],
+      "default" : null
+    }, {
+      "name" : "baseQRankSum",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "clippingRankSum",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "fisherStrandBiasPValue",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "haplotypeScore",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "inbreedingCoefficient",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "alleleCountMLE",
+      "type" : {
+        "type" : "array",
+        "items" : "int"
+      },
+      "default" : null
+    }, {
+      "name" : "alleleFrequencyMLE",
+      "type" : {
+        "type" : "array",
+        "items" : "int"
+      },
+      "default" : null
+    }, {
+      "name" : "rmsMapQ",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "mapq0Reads",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "mqRankSum",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "usedForNegativeTrainingSet",
+      "type" : [ "null", "boolean" ],
+      "default" : null
+    }, {
+      "name" : "usedForPositiveTrainingSet",
+      "type" : [ "null", "boolean" ],
+      "default" : null
+    }, {
+      "name" : "variantQualityByDepth",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "readPositionRankSum",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "vqslod",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "culprit",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "variantCallErrorProbability",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "variantIsPassing",
+      "type" : "boolean",
+      "default" : true
+    }, {
+      "name" : "variantFilters",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "default" : null
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMGenotype",
+    "fields" : [ {
+      "name" : "variant",
+      "type" : [ "null", "ADAMVariant" ]
+    }, {
+      "name" : "variantCallingAnnotations",
+      "type" : [ "null", "VariantCallingAnnotations" ],
+      "default" : null
+    }, {
+      "name" : "sampleId",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "sampleDescription",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "processingDescription",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "alleles",
+      "type" : {
+        "type" : "array",
+        "items" : "ADAMGenotypeAllele"
+      },
+      "default" : null
+    }, {
+      "name" : "referenceReadDepth",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "alternateReadDepth",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "readDepth",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "genotypeQuality",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "genotypeLikelihoods",
+      "type" : {
+        "type" : "array",
+        "items" : "int"
+      },
+      "default" : null
+    }, {
+      "name" : "expectedAlleleDosage",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "readsMappedForwardStrand",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "splitFromMultiAllelic",
+      "type" : "boolean",
+      "default" : false
+    }, {
+      "name" : "isPhased",
+      "type" : [ "null", "boolean" ],
+      "default" : null
+    }, {
+      "name" : "phaseSetId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "phaseQuality",
+      "type" : [ "null", "int" ],
+      "default" : null
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "VariantEffect",
+    "fields" : [ {
+      "name" : "hgvs",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "referenceAminoAcid",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "alternateAminoAcid",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "geneId",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "transcriptId",
+      "type" : [ "null", "string" ],
+      "default" : null
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ADAMDatabaseVariantAnnotation",
+    "fields" : [ {
+      "name" : "variant",
+      "type" : [ "null", "ADAMVariant" ]
+    }, {
+      "name" : "dbSnpId",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "geneSymbol",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "omimId",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "cosmicId",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "clinvarId",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "clinicalSignificance",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "gerpNr",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "gerpRs",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "phylop",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "ancestralAllele",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "thousandGenomesAlleleCount",
+      "type" : [ "null", "int" ],
+      "default" : null
+    }, {
+      "name" : "thousandGenomesAlleleFrequency",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "siftScore",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "siftScoreConverted",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "siftPred",
+      "type" : [ "null", "string" ],
+      "default" : null
+    }, {
+      "name" : "mutationTasterScore",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "mutationTasterScoreConverted",
+      "type" : [ "null", "float" ],
+      "default" : null
+    }, {
+      "name" : "mutationTasterPred",
+      "type" : [ "null", "string" ],
+      "default" : null
+    } ]
+  } ],
+  "messages" : { }
 }
-]

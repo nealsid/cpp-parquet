@@ -3,6 +3,7 @@
 #include "parquet-column.h"
 
 #include <boost/algorithm/string/join.hpp>
+#include <parquet-file/util/rle-encoding.h>
 #include <thrift/protocol/TCompactProtocol.h>
 
 using apache::thrift::protocol::TCompactProtocol;
