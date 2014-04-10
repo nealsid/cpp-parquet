@@ -10,9 +10,9 @@ $ mkdir build
 $ cd build && cmake ../ && make
 ```
 
-There is one hiccup with external deps, though. If you blow away the build directory, and then rereun CMake, it won't re-install Google Glog from it's build directory because the source hasn't changed.  You can just rm the `/tmp/google-glog` directory away so that it's refetched/rebuilt, or do:
+To run unit tests with logging:
 
 ```sh
-cd /tmp/google-glog/src/google-glog-build/ 
-make install
+cd build/parquet-file
+GLOG_v=2 GLOG_alsologtostderr=true ./parquet-file-test 
 ```
