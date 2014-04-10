@@ -116,7 +116,7 @@ class RleEncoder {
   // based on the bit_width, which can determine a storage optimal choice.
   // TODO: allow 0 bit_width (and have dict encoder use it)
   RleEncoder(uint8_t* buffer, int buffer_len, int max_value)
-    : bit_width_(Log2(max_value)),
+    : bit_width_(Log2(max_value) + 1),
       bit_writer_(buffer, buffer_len) {
     DCHECK_GE(bit_width_, 1);
     DCHECK_LE(bit_width_, 64);

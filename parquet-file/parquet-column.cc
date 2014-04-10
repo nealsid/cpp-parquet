@@ -109,6 +109,7 @@ void ParquetColumn::AddRepeatedData(void *buf, uint16_t current_repetition_level
   for (int i = 1; i < n; ++i) {
     repetition_levels_.push_back(column_level_);
   }
+  num_rows_ += 1;
 }
 
 uint32_t ParquetColumn::NumRows() const {

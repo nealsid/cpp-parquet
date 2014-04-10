@@ -84,6 +84,44 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
   output.Flush();
 }
 
+// Tests that the output works with two columns of required integers.
+TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
+  LOG(INFO) << output_filename_;
+  ParquetFile output(output_filename_);
+
+  ParquetColumn* root_column = 
+    new ParquetColumn({"root"}, parquet::Type::INT32, 
+		      0,
+		      FieldRepetitionType::REQUIRED, 
+		      Encoding::PLAIN,
+		      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* repeated_column = 
+    new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32, 
+		      1,
+		      FieldRepetitionType::REPEATED, 
+		      Encoding::PLAIN,
+		      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* required_column = 
+    new ParquetColumn({"AllIntsRequired"}, parquet::Type::INT32, 
+		      1,
+		      FieldRepetitionType::REQUIRED, 
+		      Encoding::PLAIN,
+		      CompressionCodec::UNCOMPRESSED);
+
+  root_column->SetChildren({repeated_column, required_column});
+  output.SetSchema(root_column);
+  uint32_t data[500];
+  for (int i = 0; i < 500; ++i) {
+    data[i] = i;
+  }
+  repeated_column->AddRepeatedData(data, 0, 500);
+  repeated_column->AddRows(data, 0, 499);
+  required_column->AddRows(data, 0, 500);
+  output.Flush();
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
