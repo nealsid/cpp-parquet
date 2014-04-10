@@ -84,7 +84,7 @@ string ParquetColumn::ToString() const {
 
 void ParquetColumn::AddRows(void* buf, uint16_t repetition_level, 
 			    uint32_t n) {
-  CHECK(repetition_level < column_level_) <<
+  CHECK_LT(repetition_level, column_level_) <<
     "For adding repeated data as part of 1 record, using AddRepeatedData";
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
