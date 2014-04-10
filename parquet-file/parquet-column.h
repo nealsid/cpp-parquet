@@ -30,14 +30,15 @@ const int kDataBufferSize = 1024000;
 // message could be represented.
 class ParquetColumn {
  public:
-  // Constructor for ParquetColumn.  name is a vector of column
-  // names from the root of the schema to the current node.  Type is
-  // the Parquet data type, repetition_type is the repetition type
-  // for the column (repeated, required, etc), and encoding &
-  // compression are as they are in Parquet.
+  // Constructor for ParquetColumn.  name is a vector of column names
+  // from the root of the schema to the current node.  Type is the
+  // Parquet data type, repetition_type is the repetition type for the
+  // column (repeated, required, etc), and encoding & compression are
+  // as they are in Parquet.  column__level represents the level of
+  // this column in the schema tree (it's used for setting the
+  // repetition & definition levels)
   ParquetColumn(const vector<string>& name, Type::type data_type,
-                uint16_t max_repetition_level,
-                uint16_t max_definition_level,
+		uint16_t column_Level,
                 FieldRepetitionType::type repetition_type,
                 Encoding::type encoding,
                 CompressionCodec::type compression_codec);
@@ -62,10 +63,11 @@ class ParquetColumn {
 
   // Method that adds some data to this column.  Each datum in buf
   // is considered it's own record, if this field is repeated.
-  void AddRows(void* buf, uint32_t n);
+  void AddRows(void* buf, uint16_t repetition_level, uint32_t n);
   // Adds repeated data to this column.  All data is considered part
   // of the same record.
-  void AddRepeatedData(void *buf, uint32_t n);
+  void AddRepeatedData(void *buf, uint16_t current_repetition_level, 
+		       uint32_t n);
   uint32_t NumRows() const;
   void AddNull();
 
@@ -78,9 +80,6 @@ class ParquetColumn {
   string ToString() const;
 
  private:
-  // Run-length encode a vector of numbers
-  void RLE(const vector<uint8_t>& numbers, vector<uint32_t>* output);
-
   // The name of the column as a vector of strings from the root to
   // the current node.
   const vector<string> column_name_;
@@ -115,15 +114,14 @@ class ParquetColumn {
   unsigned char* data_ptr_;
   // Repetition level array. Run-length encoded before being written.
   vector<uint8_t> repetition_levels_;
-  // Integer representing max repetition level.  Keeping it as
-  // uint16_t means that we can only support schemas that nest up to
-  // 65536 repeated fields.  "64k nested fields ought to be enough for
-  // anybody."
-  uint16_t max_repetition_level_;
+  // Integer representing column level in the schema tree.  It is used
+  // for the repetition & definitino levels for repeated & optional
+  // data, and consistency checks.  Keeping it as uint16_t means that
+  // we can only support schemas that nest up to 65536 repeated
+  // fields.  "64k nested fields ought to be enough for anybody."
+  uint16_t column_level_;
   // Definition level array.  Also RLE before being written.
   vector<uint8_t> definition_levels_;
-  // Integer representing max definition level for this field.
-  uint16_t max_definition_level_;
   // The offset into the file where column data is written.
   off_t column_write_offset_;
 };

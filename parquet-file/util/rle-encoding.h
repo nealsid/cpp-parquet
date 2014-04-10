@@ -110,17 +110,17 @@ class RleDecoder {
 class RleEncoder {
  public:
   // buffer/buffer_len: preallocated output buffer.
-  // bit_width: max number of bits for value.
+  // max_value: max value, used for calculating max bit width.
   // TODO: consider adding a min_repeated_run_length so the caller can control
   // when values should be encoded as repeated runs.  Currently this is derived
   // based on the bit_width, which can determine a storage optimal choice.
   // TODO: allow 0 bit_width (and have dict encoder use it)
-  RleEncoder(uint8_t* buffer, int buffer_len, int bit_width)
-    : bit_width_(bit_width),
+  RleEncoder(uint8_t* buffer, int buffer_len, int max_value)
+    : bit_width_(Log2(max_value)),
       bit_writer_(buffer, buffer_len) {
     DCHECK_GE(bit_width_, 1);
     DCHECK_LE(bit_width_, 64);
-    max_run_byte_size_ = MinBufferSize(bit_width);
+    max_run_byte_size_ = MinBufferSize();
     DCHECK_GE(buffer_len, max_run_byte_size_) << "Input buffer not big enough.";
     Clear();
   }
@@ -128,21 +128,21 @@ class RleEncoder {
   // Returns the minimum buffer size needed to use the encoder for 'bit_width'
   // This is the maximum length of a single run for 'bit_width'.
   // It is not valid to pass a buffer less than this length.
-  static int MinBufferSize(int bit_width) {
+  int MinBufferSize() {
     // 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
     int max_literal_run_size = 1 +
-        Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8);
+        Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width_, 8);
     // Up to MAX_VLQ_BYTE_LEN indicator and a single 'bit_width' value.
-    int max_repeated_run_size = BitReader::MAX_VLQ_BYTE_LEN + Ceil(bit_width, 8);
+    int max_repeated_run_size = BitReader::MAX_VLQ_BYTE_LEN + Ceil(bit_width_, 8);
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
 
   // Returns the maximum byte size it could take to encode 'num_values'.
-  static int MaxBufferSize(int bit_width, int num_values) {
-    int bytes_per_run = Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
+  int MaxBufferSize(int num_values) {
+    int bytes_per_run = Ceil(bit_width_ * MAX_VALUES_PER_LITERAL_RUN, 8.0);
     int num_runs = Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
     int literal_max_size = num_runs + num_runs * bytes_per_run;
-    return std::max(MinBufferSize(bit_width), literal_max_size);
+    return std::max(MinBufferSize(), literal_max_size);
   }
 
   // Encode value.  Returns true if the value fits in buffer, false otherwise.
@@ -158,7 +158,7 @@ class RleEncoder {
 
   // Returns pointer to underlying buffer
   uint8_t* buffer() { return bit_writer_.buffer(); }
-  int32_t len() { return bit_writer_.bytes_written(); }
+  uint32_t len() { return bit_writer_.bytes_written(); }
 
  private:
   // Flushes any buffered values.  If this is part of a repeated run, this is largely

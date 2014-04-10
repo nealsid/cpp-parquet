@@ -1,11 +1,16 @@
 ExternalProject_Add(parquet-format
-   PREFIX /tmp/parquet-format
+   PREFIX ${CMAKE_BINARY_DIR}/third_party/build/parquet-format
    GIT_REPOSITORY https://github.com/Parquet/parquet-format
+   # This is horrible - if I set these to empty, CMAKE doesn't
+   # execute the subsequent steps?
    CONFIGURE_COMMAND touch /tmp/foo
    BUILD_COMMAND touch /tmp/foo
    INSTALL_COMMAND touch /tmp/foo
    INSTALL_DIR ${CMAKE_BINARY_DIR}/third_party/parquet-format
 )
+# According to docs, ExternalProject_Get_Property will retrieve a
+# property from the external project defined above, but it always sets
+# a variable that is the same name as the property.
 ExternalProject_Get_Property(parquet-format install_dir)
 INCLUDE_DIRECTORIES (${install_dir})
 
@@ -14,9 +19,6 @@ ADD_LIBRARY(parquet-thrift STATIC
 
 ADD_DEPENDENCIES(parquet-thrift parquet-format)
 
-# According to docs, ExternalProject_Get_Property will retrieve a
-# property from the external project defined above, but it always sets
-# a variable that is the same name as the property.
 ExternalProject_Get_Property(parquet-format source_dir)
 
 # The custom command that actually runs thrift to generate the {cc,h}

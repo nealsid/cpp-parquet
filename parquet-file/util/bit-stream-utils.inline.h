@@ -26,6 +26,19 @@ inline int Ceil(int value, int divisor) {
   return value / divisor + (value % divisor != 0);
 }
 
+inline int Log2(uint64_t x) {
+  DCHECK_GT(x, 0);
+  if (x == 1) return 0;
+  // Compute result = ceil(log2(x))
+  //                = floor(log2(x - 1)) + 1, for x > 1
+  // by finding the position of the most significant bit (1-indexed) of x - 1
+  // (floor(log2(n)) = MSB(n) (0-indexed))
+  --x;
+  int result = 1;
+  while (x >>= 1) ++result;
+  return result;
+}
+
 // Returns the 'num_bits' least-significant bits of 'v'.
 inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   if (UNLIKELY(num_bits == 0)) return 0;

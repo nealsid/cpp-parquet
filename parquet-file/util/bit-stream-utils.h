@@ -22,7 +22,10 @@
 namespace impala {
 
 inline int Ceil(int value, int divisor);
-
+// Returns ceil(log2(x)).
+// TODO: this could be faster if we use __builtin_clz.  Fix this if this ever shows up
+// in a hot path.
+inline int Log2(uint64_t x);
 // Utility class to write bit/byte streams.  This class can write data to either be
 // bit packed or byte aligned (and a single stream that has a mix of both).
 // This class does not allocate memory.

@@ -15,21 +15,21 @@ int main(int argc, char* argv[]) {
 
   ParquetColumn* one_column = 
     new ParquetColumn({"AllInts"}, parquet::Type::INT32, 
-		      1, 1,
+		      1,
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* two_column = 
     new ParquetColumn({"AllInts1"}, parquet::Type::INT32, 
-		      1, 1,
+		      1,
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* root_column = 
     new ParquetColumn({"root"}, parquet::Type::INT32, 
-		      1, 1,
+		      1,
 		      FieldRepetitionType::REQUIRED, 
 		      Encoding::PLAIN,
 		      CompressionCodec::UNCOMPRESSED);
@@ -40,10 +40,10 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < 500; ++i) {
     data[i] = i;
   }
-  one_column->AddRows(data, 500);
+  one_column->AddRows(data, 500, 0);
   for (int i = 0; i < 500; ++i) {
     data[i] = i;
   }
-  two_column->AddRows(data, 500);
+  two_column->AddRows(data, 500, 0);
   output.Flush();
 }

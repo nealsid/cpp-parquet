@@ -114,13 +114,13 @@ AvroSchemaToParquetSchemaConverter::AvroNodePtrToParquetColumn(const NodePtr& no
     CHECK(node->leafAt(0)->names() == 0);
     CHECK(node->leafAt(0)->type() == avro::AVRO_INT);
     c = new ParquetColumn(names, parquet::Type::INT32,
-			  1, 1,
+			  1,
 			  FieldRepetitionType::REPEATED,
 			  Encoding::PLAIN,
 			  CompressionCodec::UNCOMPRESSED);
   } else {
     c = new ParquetColumn(names, parquet::Type::INT32,
-			  1, 1,
+			  1,
 			  FieldRepetitionType::REQUIRED,
 			  Encoding::PLAIN,
 			  CompressionCodec::UNCOMPRESSED);
