@@ -38,7 +38,7 @@ class ParquetColumn {
   // this column in the schema tree (it's used for setting the
   // repetition & definition levels)
   ParquetColumn(const vector<string>& name, Type::type data_type,
-		uint16_t column_Level,
+                uint16_t column_Level,
                 FieldRepetitionType::type repetition_type,
                 Encoding::type encoding,
                 CompressionCodec::type compression_codec);
@@ -66,8 +66,8 @@ class ParquetColumn {
   void AddRows(void* buf, uint16_t repetition_level, uint32_t n);
   // Adds repeated data to this column.  All data is considered part
   // of the same record.
-  void AddRepeatedData(void *buf, uint16_t current_repetition_level, 
-		       uint32_t n);
+  void AddRepeatedData(void *buf, uint16_t current_repetition_level,
+                       uint32_t n);
   uint32_t NumRows() const;
   void AddNull();
 
