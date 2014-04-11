@@ -69,6 +69,8 @@ class ParquetColumn {
   void AddRepeatedData(void *buf, uint16_t current_repetition_level,
                        uint32_t n);
   uint32_t NumRows() const;
+  uint32_t NumDatums() const;
+
   void AddNull();
 
   // Flush this column via the protocol provided.
@@ -95,16 +97,17 @@ class ParquetColumn {
   // A list of columns that are children of this one.
   vector<ParquetColumn*> children_;
 
-  // This represents the Parquet structures that will track this
-  // column on-disk.  For now, we only support one chunk per column.
-  // TODO: expand to multiple chunks
-  ColumnChunk data_chunks_;
-  ColumnMetaData column_metadata_;
-  DataPageHeader data_header_;
-
-  // Bookkeeping - how many rows are in this column?  This includes
+  // Bookkeeping
+  // How many did the page header + R&D levels + data take up?
+  uint32_t uncompressed_bytes_;
+  // how many rows are in this column?  This includes
   // NULLs and counts repeated fields as 1 row.
   uint32_t num_rows_;
+  // How many pieces of data are in this column.  For this field, repeated
+  // data is not counted as one record.  So if you had an array field, and
+  // an individual record contained [1,2,3,4,5],  num_datums_ would 5, and
+  // num_rows_ would be 1.
+  uint32_t num_datums_;
   // The number of bytes each instance of the datatype stored in this
   // column takes.
   uint8_t bytes_per_datum_;

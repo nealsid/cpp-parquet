@@ -1,15 +1,16 @@
 // Copyright 2014 Mount Sinai School of Medicine.
 
-#include "parquet-file.h"
+#include "./parquet-file.h"
 
 #include <boost/shared_ptr.hpp>
 #include <fcntl.h>
 #include <glog/logging.h>
 #include <parquet_types.h>
-#include <string>
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TFDTransport.h>
 #include <thrift/protocol/TJSONProtocol.h>
+
+#include <string>
 
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
@@ -38,8 +39,8 @@ ParquetFile::ParquetFile(string file_base, int num_files) {
   ok_ = false;
 
   fd_ = open(file_base.c_str(), O_RDWR | O_CREAT | O_EXCL, 0700);
-  LOG_IF(FATAL, fd_ == -1) << "Could not create file " << file_base.c_str() << ": "
-			     << strerror(errno);
+  LOG_IF(FATAL, fd_ == -1) << "Could not create file " << file_base.c_str()
+                           << ": " << strerror(errno);
   // Write magic header
   write(fd_, kParquetMagicBytes, strlen(kParquetMagicBytes));
 
@@ -79,8 +80,8 @@ void ParquetFile::Flush() {
   assert(current_offset == strlen(kParquetMagicBytes));
   ParquetColumn* first_column = *(file_columns_.begin() + 1);
   uint32_t num_rows = first_column->NumRows();
-  LOG_IF(WARNING, num_rows == 0) 
-    << "Number of rows in first column (name: " 
+  LOG_IF(WARNING, num_rows == 0)
+    << "Number of rows in first column (name: "
     << first_column->FullSchemaPath() << ") is 0";
   for (auto column_iter = file_columns_.begin() + 1;
        column_iter != file_columns_.end();
@@ -107,10 +108,10 @@ void ParquetFile::Flush() {
     VLOG(2) << "\t" << column->ToString();
     column->Flush(fd_, protocol_.get());
     ColumnMetaData column_metadata = column->ParquetColumnMetaData();
-    row_group.__set_total_byte_size(row_group.total_byte_size + 
-				    column_metadata.total_uncompressed_size);
-    VLOG(2) << "\tWrote " << to_string(column_metadata.total_uncompressed_size) 
-	    << " bytes.";
+    row_group.__set_total_byte_size(row_group.total_byte_size +
+                                    column_metadata.total_uncompressed_size);
+    VLOG(2) << "Wrote " << to_string(column_metadata.total_uncompressed_size)
+            << " bytes for column: " << column->FullSchemaPath();
     ColumnChunk column_chunk;
     column_chunk.__set_file_path(file_base_.c_str());
     column_chunk.__set_file_offset(column_metadata.data_page_offset);
@@ -132,12 +133,12 @@ void ParquetFile::SetSchema(ParquetColumn* root) {
   // a depth-first traversal of the schema as a tree.
   vector<SchemaElement> parquet_schema_vector;
   ParquetColumnWalker* walker = new ParquetColumnWalker(&parquet_schema_vector);
-  LOG_IF(WARNING, file_columns_.size() > 0) 
+  LOG_IF(WARNING, file_columns_.size() > 0)
     << "Internal file columns being reset";
   file_columns_.clear();
   DepthFirstSchemaTraversal(root, walker);
   VLOG(2) << root->ToString();
-  
+
   file_meta_data_.__set_schema(parquet_schema_vector);
 }
 
@@ -145,7 +146,7 @@ const ParquetColumn* ParquetFile::Root() const {
   return file_columns_.at(0);
 }
 
-ParquetColumnWalker::ParquetColumnWalker(vector<SchemaElement>* dfsVector) 
+ParquetColumnWalker::ParquetColumnWalker(vector<SchemaElement>* dfsVector)
     : dfsVector_(dfsVector) {
 }
 

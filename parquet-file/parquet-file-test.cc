@@ -1,3 +1,5 @@
+// Copyright 2014 Mount Sinai School of Medicine
+
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <parquet-file/parquet-file.h>
@@ -17,7 +19,7 @@ class ParquetFileTest : public ::testing::Test {
 
   ParquetFileTest() {
     // You can do set-up work for each test here.
-    strcpy(template_, "/tmp/parquetFileTmp.XXXXXX");
+    snprintf(template_, sizeof(template_), "/tmp/parquetFileTmp.XXXXXX");
   }
 
   virtual ~ParquetFileTest() {
@@ -50,26 +52,26 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
   LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
-  ParquetColumn* one_column = 
-    new ParquetColumn({"AllInts"}, parquet::Type::INT32, 
-		      1,
-		      FieldRepetitionType::REQUIRED, 
-		      Encoding::PLAIN,
-		      CompressionCodec::UNCOMPRESSED);
+  ParquetColumn* one_column =
+    new ParquetColumn({"AllInts"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
 
-  ParquetColumn* two_column = 
-    new ParquetColumn({"AllInts1"}, parquet::Type::INT32, 
-		      1,
-		      FieldRepetitionType::REQUIRED, 
-		      Encoding::PLAIN,
-		      CompressionCodec::UNCOMPRESSED);
+  ParquetColumn* two_column =
+    new ParquetColumn({"AllInts1"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
 
-  ParquetColumn* root_column = 
-    new ParquetColumn({"root"}, parquet::Type::INT32, 
-		      0,
-		      FieldRepetitionType::REQUIRED, 
-		      Encoding::PLAIN,
-		      CompressionCodec::UNCOMPRESSED);
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
   root_column->SetChildren({one_column, two_column});
   output.SetSchema(root_column);
   uint32_t data[500];
@@ -89,26 +91,26 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
-  ParquetColumn* root_column = 
-    new ParquetColumn({"root"}, parquet::Type::INT32, 
-		      0,
-		      FieldRepetitionType::REQUIRED, 
-		      Encoding::PLAIN,
-		      CompressionCodec::UNCOMPRESSED);
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
 
-  ParquetColumn* repeated_column = 
-    new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32, 
-		      1,
-		      FieldRepetitionType::REPEATED, 
-		      Encoding::PLAIN,
-		      CompressionCodec::UNCOMPRESSED);
+  ParquetColumn* repeated_column =
+    new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::REPEATED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
 
-  ParquetColumn* required_column = 
-    new ParquetColumn({"AllIntsRequired"}, parquet::Type::INT32, 
-		      1,
-		      FieldRepetitionType::REQUIRED, 
-		      Encoding::PLAIN,
-		      CompressionCodec::UNCOMPRESSED);
+  ParquetColumn* required_column =
+    new ParquetColumn({"AllIntsRequired"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
 
   root_column->SetChildren({repeated_column, required_column});
   output.SetSchema(root_column);
@@ -118,6 +120,7 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   }
   repeated_column->AddRepeatedData(data, 0, 500);
   repeated_column->AddRows(data, 0, 499);
+
   required_column->AddRows(data, 0, 500);
   output.Flush();
 }
