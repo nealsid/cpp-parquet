@@ -177,6 +177,8 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tData size: " << BytesForDataType(data_type_) * num_datums_
           << " bytes.";
   VLOG(2) << "\tNumber of rows: " << NumRows();
+  VLOG(2) << "\tFile offset: " << column_write_offset_;
+
   uint8_t encoded_repetition_levels[1024], encoded_definition_levels[1024];
   if (RepetitionType() == FieldRepetitionType::REPEATED) {
     VLOG(2) << "\tNon-required field, encoding R&D levels";
@@ -185,30 +187,36 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
                                    column_level_);
     CHECK_GE(1024, rep_encoder.MaxBufferSize(repetition_levels_.size()))
       << "Hardcoded buffer for 1k repetition levels is not big enough";
-    for (auto rep_level : repetition_levels_) {
+    VLOG(2) << "\tRepetition levels size: " << repetition_levels_.size();
+    VLOG(3) << "\tRepetition Level dump (" << definition_levels_.size() << " elements)";
+    for (uint8_t rep_level : repetition_levels_) {
+      VLOG(3) << "\t\t" << to_string(rep_level);
       rep_encoder.Put(rep_level);
     }
     rep_encoder.Flush();
     repetition_level_size = rep_encoder.len();
     VLOG(2) << "\tRepetition levels occupy " << repetition_level_size
             << " bytes encoded";
-
+    VLOG(2) << "\tRepetition level bitstream: " << std::bitset<8>(encoded_repetition_levels[0]) << std::bitset<8>(encoded_repetition_levels[1]);
     impala::RleEncoder def_encoder(encoded_definition_levels, 1024,
                                    column_level_);
     CHECK_GE(1024, def_encoder.MaxBufferSize(definition_levels_.size()))
       << "Hardcoded buffer for 1k definition levels is not big enough";
+    VLOG(3) << "\tDefinition level dump (" << definition_levels_.size() << " elements)";
     for (auto def_level : definition_levels_) {
+      VLOG(3) << "\t\t" << to_string(def_level);
       def_encoder.Put(def_level);
     }
     def_encoder.Flush();
     definition_level_size = def_encoder.len();
     VLOG(2) << "\tDefinition levels occupy " << definition_level_size
             << " bytes encoded";
+    VLOG(2) << "\tDefinition level bitstream: " << std::bitset<8>(encoded_definition_levels[0]) << std::bitset<8>(encoded_definition_levels[1]);
   }
 
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);
-  // We add 8 to this for the two ints at that indicate the lenght of
+  // We add 8 to this for the two ints at that indicate the length of
   // the rep & def levels.
   uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
     + repetition_level_size + definition_level_size + 8;
@@ -256,7 +264,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   // We don't write definition levels, because, for now, fields are
   // required.
 
-  for (int i = 0; i < NumRows(); ++i) {
+  for (int i = 0; i < NumDatums(); ++i) {
     LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
       << "Exceeded data added to internal buffer";
     ssize_t written = write(fd, data_buffer_ + i * bytes_per_datum_,
@@ -266,6 +274,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
                  << i;
     }
   }
+  VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
 
 ColumnMetaData ParquetColumn::ParquetColumnMetaData() const {
