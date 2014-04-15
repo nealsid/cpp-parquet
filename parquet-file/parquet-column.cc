@@ -197,7 +197,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     repetition_level_size = rep_encoder.len();
     VLOG(2) << "\tRepetition levels occupy " << repetition_level_size
             << " bytes encoded";
-    VLOG(2) << "\tRepetition level bitstream: " << std::bitset<8>(encoded_repetition_levels[0]) << std::bitset<8>(encoded_repetition_levels[1]);
+    VLOG(2) << "\tRepetition level bitstream: " << std::bitset<8>(encoded_repetition_levels[0]) << " " << std::bitset<8>(encoded_repetition_levels[1]);
     impala::RleEncoder def_encoder(encoded_definition_levels, 1024,
                                    column_level_);
     CHECK_GE(1024, def_encoder.MaxBufferSize(definition_levels_.size()))
@@ -211,7 +211,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     definition_level_size = def_encoder.len();
     VLOG(2) << "\tDefinition levels occupy " << definition_level_size
             << " bytes encoded";
-    VLOG(2) << "\tDefinition level bitstream: " << std::bitset<8>(encoded_definition_levels[0]) << std::bitset<8>(encoded_definition_levels[1]);
+    VLOG(2) << "\tDefinition level bitstream: " << std::bitset<8>(encoded_definition_levels[0]) << " " << std::bitset<8>(encoded_definition_levels[1]);
   }
 
   PageHeader page_header;
@@ -240,7 +240,9 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tTotal uncompressed bytes: " << uncompressed_bytes_;
 
   if (repetition_level_size > 0) {
+    VLOG(3) << "\tOffset before rep size: " << lseek(fd, 0, SEEK_CUR);
     write(fd, &repetition_level_size, 4);
+    VLOG(3) << "\tOffset after rep size: " << lseek(fd, 0, SEEK_CUR);
     size_t bytes_written =
       write(fd, encoded_repetition_levels, repetition_level_size);
     if (bytes_written != repetition_level_size) {
@@ -248,6 +250,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
                    << repetition_level_size
                    << " for repetition levels were written.";
     }
+    VLOG(3) << "\tOffset after rep levels written: " << lseek(fd, 0, SEEK_CUR);
   }
 
   if (definition_level_size > 0) {
