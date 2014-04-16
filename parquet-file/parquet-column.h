@@ -68,10 +68,14 @@ class ParquetColumn {
   // of the same record.
   void AddRepeatedData(void *buf, uint16_t current_repetition_level,
                        uint32_t n);
+  // Add a NULL to this column.
+  void AddNulls(uint16_t current_repetition_level,
+                uint16_t current_definition_level,
+                uint32_t n);
+
   uint32_t NumRows() const;
   uint32_t NumDatums() const;
 
-  void AddNull();
 
   // Flush this column via the protocol provided.
   void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);

@@ -119,6 +119,18 @@ void ParquetColumn::AddRepeatedData(void *buf,
   num_datums_ += n;
 }
 
+void ParquetColumn::AddNulls(uint16_t current_repetition_level,
+                             uint16_t current_definition_level,
+                             uint32_t n) {
+  LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::OPTIONAL) <<
+    "Cannot add NULL to non-optional column: " << FullSchemaPath();
+  for (int i = 0; i < n; ++i) {
+    repetition_levels_.push_back(current_repetition_level);
+    definition_levels_.push_back(current_definition_level);
+  }
+  num_rows_ += n;
+}
+
 uint32_t ParquetColumn::NumRows() const {
   return num_rows_;
 }
@@ -168,8 +180,6 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     << "Encoding can only be plain at this time.";
   LOG_IF(FATAL, CompressionCodec() != CompressionCodec::UNCOMPRESSED)
     << "Compression is not supported at this time.";
-  LOG_IF(FATAL, RepetitionType() == FieldRepetitionType::OPTIONAL)
-    << "Optional fields are not supported at this time.";
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
   uint32_t repetition_level_size = 0, definition_level_size = 0;
@@ -188,7 +198,8 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     CHECK_GE(1024, rep_encoder.MaxBufferSize(repetition_levels_.size()))
       << "Hardcoded buffer for 1k repetition levels is not big enough";
     VLOG(2) << "\tRepetition levels size: " << repetition_levels_.size();
-    VLOG(3) << "\tRepetition Level dump (" << definition_levels_.size() << " elements)";
+    VLOG(3) << "\tRepetition Level dump (" << definition_levels_.size()
+            << " elements)";
     for (uint8_t rep_level : repetition_levels_) {
       VLOG(3) << "\t\t" << to_string(rep_level);
       rep_encoder.Put(rep_level);
@@ -197,12 +208,19 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     repetition_level_size = rep_encoder.len();
     VLOG(2) << "\tRepetition levels occupy " << repetition_level_size
             << " bytes encoded";
-    VLOG(2) << "\tRepetition level bitstream: " << std::bitset<8>(encoded_repetition_levels[0]) << " " << std::bitset<8>(encoded_repetition_levels[1]);
+    VLOG(2) << "\tRepetition level bitstream: "
+            << std::bitset<8>(encoded_repetition_levels[0])
+            << " " << std::bitset<8>(encoded_repetition_levels[1]);
+  }
+
+  if (RepetitionType() == FieldRepetitionType::REPEATED ||
+      RepetitionType() == FieldRepetitionType::OPTIONAL) {
     impala::RleEncoder def_encoder(encoded_definition_levels, 1024,
                                    column_level_);
     CHECK_GE(1024, def_encoder.MaxBufferSize(definition_levels_.size()))
       << "Hardcoded buffer for 1k definition levels is not big enough";
-    VLOG(3) << "\tDefinition level dump (" << definition_levels_.size() << " elements)";
+    VLOG(3) << "\tDefinition level dump (" << definition_levels_.size()
+            << " elements)";
     for (auto def_level : definition_levels_) {
       VLOG(3) << "\t\t" << to_string(def_level);
       def_encoder.Put(def_level);
@@ -211,7 +229,9 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     definition_level_size = def_encoder.len();
     VLOG(2) << "\tDefinition levels occupy " << definition_level_size
             << " bytes encoded";
-    VLOG(2) << "\tDefinition level bitstream: " << std::bitset<8>(encoded_definition_levels[0]) << " " << std::bitset<8>(encoded_definition_levels[1]);
+    VLOG(2) << "\tDefinition level bitstream: "
+            << std::bitset<8>(encoded_definition_levels[0])
+            << " " << std::bitset<8>(encoded_definition_levels[1]);
   }
 
   PageHeader page_header;
@@ -225,7 +245,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   page_header.__set_compressed_page_size(uncompressed_bytes_);
 
   DataPageHeader data_header;
-  data_header.__set_num_values(NumDatums());
+  data_header.__set_num_values(definition_levels_.size());
   data_header.__set_encoding(Encoding::PLAIN);
   // NB: For some reason, the following two must be set, even though
   // they can default to PLAIN, even for required/nonrepeating fields.
@@ -243,8 +263,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     VLOG(3) << "\tOffset before rep size: " << lseek(fd, 0, SEEK_CUR);
     write(fd, &repetition_level_size, 4);
     VLOG(3) << "\tOffset after rep size: " << lseek(fd, 0, SEEK_CUR);
-    size_t bytes_written =
-      write(fd, encoded_repetition_levels, repetition_level_size);
+    size_t bytes_written = 0;
+    for (int i = 0; i < repetition_level_size; ++i) {
+      bytes_written +=
+        write(fd, encoded_repetition_levels + i, 1);
+    }
     if (bytes_written != repetition_level_size) {
       LOG(WARNING) << "Only " << bytes_written << " of "
                    << repetition_level_size
@@ -255,17 +278,20 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 
   if (definition_level_size > 0) {
     write(fd, &definition_level_size, 4);
-    size_t bytes_written =
-      write(fd, encoded_definition_levels, definition_level_size);
+    VLOG(3) << "\tOffset after def size: " << lseek(fd, 0, SEEK_CUR);
+
+    size_t bytes_written = 0;
+    for (int i = 0 ; i < definition_level_size; ++i) {
+      bytes_written +=
+        write(fd, encoded_definition_levels + i, 1);
+    }
     if (bytes_written != definition_level_size) {
       LOG(WARNING) << "Only " << bytes_written << " of "
                    << definition_level_size
                    << " for definition levels were written.";
     }
+    VLOG(3) << "\tOffset after def levels written: " << lseek(fd, 0, SEEK_CUR);
   }
-
-  // We don't write definition levels, because, for now, fields are
-  // required.
 
   for (int i = 0; i < NumDatums(); ++i) {
     LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
@@ -286,7 +312,7 @@ ColumnMetaData ParquetColumn::ParquetColumnMetaData() const {
   column_metadata.__set_encodings({Encoding()});
   column_metadata.__set_path_in_schema(column_name_);
   column_metadata.__set_codec(CompressionCodec());
-  column_metadata.__set_num_values(NumDatums());
+  column_metadata.__set_num_values(definition_levels_.size());
   column_metadata.__set_total_uncompressed_size(uncompressed_bytes_);
   column_metadata.__set_total_compressed_size(uncompressed_bytes_);
   column_metadata.__set_data_page_offset(column_write_offset_);
