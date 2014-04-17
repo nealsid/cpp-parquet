@@ -175,6 +175,55 @@ void ParquetColumn::AddChild(ParquetColumn* child) {
   children_.push_back(child);
 }
 
+void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
+				 uint8_t* output_buffer, uint32_t* num_bytes) {
+  CHECK_NOTNULL(output_buffer);
+  CHECK_NOTNULL(num_bytes);
+  impala::RleEncoder encoder(output_buffer, 1024, column_level_);
+  CHECK_GE(1024, encoder.MaxBufferSize(level_vector.size()))
+    << "Hardcoded buffer for 1k levels is not big enough";
+  VLOG(2) << "\tLevels size: " << level_vector.size();
+  for (uint8_t level : level_vector) {
+    VLOG(3) << "\t\t" << to_string(level);
+    encoder.Put(level);
+  }
+  encoder.Flush();
+  *num_bytes = encoder.len();
+}
+
+void ParquetColumn::EncodeRepetitionLevels(uint8_t* encoded_repetition_levels, uint32_t* repetition_level_size) {
+  CHECK_NOTNULL(repetition_level_size);
+  if (RepetitionType() == FieldRepetitionType::REPEATED) {
+    VLOG(2) << "\tNon-required field, encoding repetition levels";
+    EncodeLevels(repetition_levels_, encoded_repetition_levels,
+		 repetition_level_size);
+    VLOG(2) << "\tRepetition levels occupy " << *repetition_level_size
+	    << " bytes encoded";
+    VLOG(2) << "\tRepetition level bitstream: "
+	    << std::bitset<8>(encoded_repetition_levels[0])
+	    << " " << std::bitset<8>(encoded_repetition_levels[1]);
+  } else {
+    VLOG(2) << "\tRequired field, skipping repetition levels";
+    *repetition_level_size = 0;
+  }
+}
+
+void ParquetColumn::EncodeDefinitionLevels(uint8_t* encoded_definition_levels, uint32_t* definition_level_size) {
+  CHECK_NOTNULL(definition_level_size);
+  if (RepetitionType() == FieldRepetitionType::REPEATED ||
+      RepetitionType() == FieldRepetitionType::OPTIONAL) {
+    EncodeLevels(definition_levels_, encoded_definition_levels,
+		 definition_level_size);
+    VLOG(2) << "\tDefinition levels occupy " << *definition_level_size
+            << " bytes encoded";
+    VLOG(2) << "\tDefinition level bitstream: "
+            << std::bitset<8>(encoded_definition_levels[0])
+            << " " << std::bitset<8>(encoded_definition_levels[1]);
+  } else {
+    VLOG(2) << "\tSingular required field, skipping definition levels";
+    *definition_level_size = 0;
+  }
+}
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   LOG_IF(FATAL, Encoding() != Encoding::PLAIN)
     << "Encoding can only be plain at this time.";
@@ -182,7 +231,6 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     << "Compression is not supported at this time.";
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
-  uint32_t repetition_level_size = 0, definition_level_size = 0;
   VLOG(2) << "Inside flush for " << FullSchemaPath();
   VLOG(2) << "\tData size: " << BytesForDataType(data_type_) * num_datums_
           << " bytes.";
@@ -190,49 +238,9 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tFile offset: " << column_write_offset_;
 
   uint8_t encoded_repetition_levels[1024], encoded_definition_levels[1024];
-  if (RepetitionType() == FieldRepetitionType::REPEATED) {
-    VLOG(2) << "\tNon-required field, encoding R&D levels";
-
-    impala::RleEncoder rep_encoder(encoded_repetition_levels, 1024,
-                                   column_level_);
-    CHECK_GE(1024, rep_encoder.MaxBufferSize(repetition_levels_.size()))
-      << "Hardcoded buffer for 1k repetition levels is not big enough";
-    VLOG(2) << "\tRepetition levels size: " << repetition_levels_.size();
-    VLOG(3) << "\tRepetition Level dump (" << definition_levels_.size()
-            << " elements)";
-    for (uint8_t rep_level : repetition_levels_) {
-      VLOG(3) << "\t\t" << to_string(rep_level);
-      rep_encoder.Put(rep_level);
-    }
-    rep_encoder.Flush();
-    repetition_level_size = rep_encoder.len();
-    VLOG(2) << "\tRepetition levels occupy " << repetition_level_size
-            << " bytes encoded";
-    VLOG(2) << "\tRepetition level bitstream: "
-            << std::bitset<8>(encoded_repetition_levels[0])
-            << " " << std::bitset<8>(encoded_repetition_levels[1]);
-  }
-
-  if (RepetitionType() == FieldRepetitionType::REPEATED ||
-      RepetitionType() == FieldRepetitionType::OPTIONAL) {
-    impala::RleEncoder def_encoder(encoded_definition_levels, 1024,
-                                   column_level_);
-    CHECK_GE(1024, def_encoder.MaxBufferSize(definition_levels_.size()))
-      << "Hardcoded buffer for 1k definition levels is not big enough";
-    VLOG(3) << "\tDefinition level dump (" << definition_levels_.size()
-            << " elements)";
-    for (auto def_level : definition_levels_) {
-      VLOG(3) << "\t\t" << to_string(def_level);
-      def_encoder.Put(def_level);
-    }
-    def_encoder.Flush();
-    definition_level_size = def_encoder.len();
-    VLOG(2) << "\tDefinition levels occupy " << definition_level_size
-            << " bytes encoded";
-    VLOG(2) << "\tDefinition level bitstream: "
-            << std::bitset<8>(encoded_definition_levels[0])
-            << " " << std::bitset<8>(encoded_definition_levels[1]);
-  }
+  uint32_t repetition_level_size = 0, definition_level_size = 0;
+  EncodeRepetitionLevels(encoded_repetition_levels, &repetition_level_size);
+  EncodeDefinitionLevels(encoded_definition_levels, &definition_level_size);
 
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);

@@ -86,6 +86,18 @@ class ParquetColumn {
   string ToString() const;
 
  private:
+  // Helper method to encode a vector of 8-bit integers into an output
+  // buffer.  Used for repetition & definition level encoding.
+  void EncodeLevels(const vector<uint8_t>& level_vector,
+		    uint8_t* output_buffer, uint32_t* num_bytes);
+
+  // Following two methods call EncodeLevels with the right parameters
+  // for encoding those specific level vectors (repetition or
+  // definition)
+  void EncodeRepetitionLevels(uint8_t* encoded_repetition_levels,
+			      uint32_t* repetition_level_size);
+  void EncodeDefinitionLevels(uint8_t* encoded_definition_levels,
+			      uint32_t* definition_level_size);
   // The name of the column as a vector of strings from the root to
   // the current node.
   const vector<string> column_name_;
