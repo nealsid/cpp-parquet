@@ -176,7 +176,7 @@ void ParquetColumn::AddChild(ParquetColumn* child) {
 }
 
 void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
-				 uint8_t* output_buffer, uint32_t* num_bytes) {
+                                 uint8_t* output_buffer, uint32_t* num_bytes) {
   CHECK_NOTNULL(output_buffer);
   CHECK_NOTNULL(num_bytes);
   impala::RleEncoder encoder(output_buffer, 1024, column_level_);
@@ -191,29 +191,31 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
   *num_bytes = encoder.len();
 }
 
-void ParquetColumn::EncodeRepetitionLevels(uint8_t* encoded_repetition_levels, uint32_t* repetition_level_size) {
+void ParquetColumn::EncodeRepetitionLevels(uint8_t* encoded_repetition_levels,
+                                           uint32_t* repetition_level_size) {
   CHECK_NOTNULL(repetition_level_size);
   if (RepetitionType() == FieldRepetitionType::REPEATED) {
     VLOG(2) << "\tNon-required field, encoding repetition levels";
     EncodeLevels(repetition_levels_, encoded_repetition_levels,
-		 repetition_level_size);
+                 repetition_level_size);
     VLOG(2) << "\tRepetition levels occupy " << *repetition_level_size
-	    << " bytes encoded";
+            << " bytes encoded";
     VLOG(2) << "\tRepetition level bitstream: "
-	    << std::bitset<8>(encoded_repetition_levels[0])
-	    << " " << std::bitset<8>(encoded_repetition_levels[1]);
+            << std::bitset<8>(encoded_repetition_levels[0])
+            << " " << std::bitset<8>(encoded_repetition_levels[1]);
   } else {
     VLOG(2) << "\tRequired field, skipping repetition levels";
     *repetition_level_size = 0;
   }
 }
 
-void ParquetColumn::EncodeDefinitionLevels(uint8_t* encoded_definition_levels, uint32_t* definition_level_size) {
+void ParquetColumn::EncodeDefinitionLevels(uint8_t* encoded_definition_levels,
+                                           uint32_t* definition_level_size) {
   CHECK_NOTNULL(definition_level_size);
   if (RepetitionType() == FieldRepetitionType::REPEATED ||
       RepetitionType() == FieldRepetitionType::OPTIONAL) {
     EncodeLevels(definition_levels_, encoded_definition_levels,
-		 definition_level_size);
+                 definition_level_size);
     VLOG(2) << "\tDefinition levels occupy " << *definition_level_size
             << " bytes encoded";
     VLOG(2) << "\tDefinition level bitstream: "
