@@ -86,7 +86,9 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
   output.Flush();
 }
 
-// Tests that the output works with two columns of required integers.
+// Tests that the output works with two columns of integers, one array
+// and one non-array.  The array column has 1 array of 500 integers
+// the other column has 1 individual integer in the records.
 TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
@@ -123,9 +125,42 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   output.Flush();
 }
 
+// Tests that the output works with one column of array integers.  The
+// test has 250 records of 2 element arrays.
+TEST_F(ParquetFileTest, OneColumn250Records) {
+  LOG(INFO) << output_filename_;
+  ParquetFile output(output_filename_);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* repeated_column =
+    new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::REPEATED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  root_column->SetChildren({repeated_column});
+  output.SetSchema(root_column);
+  uint32_t data[500];
+  for (int i = 0; i < 500; ++i) {
+    data[i] = i;
+  }
+  for (int i = 0; i < 250; i += 2) {
+    repeated_column->AddRepeatedData(data + i, 0, 2);
+  }
+  output.Flush();
+}
+
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 4 integers and
-// 1 individual integer in 2 different records.
+// 1 individual integer, for a total of 2 different records.  The
+// other column has 2 individual integers in the records.
 TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeatedAndNonRepeatedData) {
   LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
@@ -153,18 +188,19 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeatedAndNonRepeatedData) {
 
   root_column->SetChildren({repeated_column, required_column});
   output.SetSchema(root_column);
-  uint32_t data[500];
-  for (int i = 0; i < 500; ++i) {
+  uint32_t data[5];
+  for (int i = 0; i < 5; ++i) {
     data[i] = i;
   }
   repeated_column->AddRepeatedData(data, 0, 4);
-  repeated_column->AddRows(data, 0, 1);
+  repeated_column->AddRows(data + 4, 0, 1);
 
   required_column->AddRows(data, 0, 2);
   output.Flush();
 }
 
-// Tests that the output works with optional data.
+// Tests that the output works with optional data even if all data is
+// filled in.
 TEST_F(ParquetFileTest, OneColumnOptionalData) {
   LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
@@ -187,11 +223,68 @@ TEST_F(ParquetFileTest, OneColumnOptionalData) {
   output.SetSchema(root_column);
   uint32_t data[5];
   for (int i = 0; i < 5; ++i) {
-    data[i] = i;
+    data[i] = 50 * i;
   }
   for (int i = 0; i < 5; ++i) {
     optional_column->AddRows(data + i, 0, 1);
-    //    optional_column->AddNulls(0, 0, 1);
+  }
+  output.Flush();
+}
+
+// Tests that the output works with optional data with nulls
+TEST_F(ParquetFileTest, OneColumn500Nulls) {
+  LOG(INFO) << output_filename_;
+  ParquetFile output(output_filename_);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* optional_column =
+    new ParquetColumn({"OptionalInts"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::OPTIONAL,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  root_column->SetChildren({optional_column});
+  output.SetSchema(root_column);
+  optional_column->AddNulls(0, 0, 500);
+  output.Flush();
+}
+
+// Tests that the output works with optional data with interspersed
+// nulls & data.
+TEST_F(ParquetFileTest, OneColumn500NullsAndData) {
+  LOG(INFO) << output_filename_;
+  ParquetFile output(output_filename_);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* optional_column =
+    new ParquetColumn({"OptionalInts"}, parquet::Type::INT32,
+                      1,
+                      FieldRepetitionType::OPTIONAL,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  root_column->SetChildren({optional_column});
+  output.SetSchema(root_column);
+  uint32_t data[500];
+  for (int i = 0; i < 500; ++i) {
+    data[i] = i;
+  }
+  for (int i = 0; i < 500; ++i) {
+    optional_column->AddNulls(0, 0, 1);
+    optional_column->AddRows(data + i, 0, 1);
   }
   output.Flush();
 }

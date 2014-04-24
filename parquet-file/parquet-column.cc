@@ -89,7 +89,7 @@ void ParquetColumn::AddRows(void* buf, uint16_t repetition_level,
     "For adding repeated data as part of 1 record, using AddRepeatedData";
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_buffer_, buf, n * bytes_per_datum_);
+  memcpy(data_ptr_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
   num_rows_ += n;
   num_datums_ += n;
@@ -107,7 +107,7 @@ void ParquetColumn::AddRepeatedData(void *buf,
   LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REPEATED) <<
     "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
   size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_buffer_, buf, n * bytes_per_datum_);
+  memcpy(data_ptr_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
   repetition_levels_.push_back(current_repetition_level);
   definition_levels_.push_back(column_level_);
@@ -242,10 +242,16 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);
+  uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
+                        + repetition_level_size + definition_level_size;
   // We add 8 to this for the two ints at that indicate the length of
   // the rep & def levels.
-  uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
-    + repetition_level_size + definition_level_size + 8;
+  if (repetition_level_size > 0) {
+    uncompressed_bytes_ += 4;
+  }
+  if (definition_level_size > 0) {
+    uncompressed_bytes_ += 4;
+  }
   page_header.__set_uncompressed_page_size(uncompressed_bytes_);
   // Obviously, this is a stop gap until compression support is added.
   page_header.__set_compressed_page_size(uncompressed_bytes_);
