@@ -14,6 +14,7 @@ INCLUDE(ExternalProject)
 INCLUDE(ParquetFormatCMakeLists)
 INCLUDE(GoogleGlogCMakeLists)
 INCLUDE(GoogleTestCMakeLists)
+# INCLUDE(SnappyCMakeLists)
 
 FIND_PACKAGE(Thrift REQUIRED)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
