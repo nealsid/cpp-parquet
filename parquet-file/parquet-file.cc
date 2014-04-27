@@ -78,16 +78,24 @@ void ParquetFile::Flush() {
   // file already.
   VLOG(2) << "Offset at beginning of flush: " << to_string(current_offset);
   assert(current_offset == strlen(kParquetMagicBytes));
-  ParquetColumn* first_column = *(file_columns_.begin() + 1);
-  uint32_t num_rows = first_column->NumRows();
+
+  uint32_t num_rows = -1;
+  for (auto column = file_columns_.begin() + 1;
+       column != file_columns_.end();
+       ++column) {
+    if ((*column)->Children().size() == 0) {
+      num_rows = (*column)->NumRows();
+      break;
+    }
+  }
   LOG_IF(WARNING, num_rows == 0)
-    << "Number of rows in first column (name: "
-    << first_column->FullSchemaPath() << ") is 0";
+    << "Number of rows in first leaf-node column is 0";
   for (auto column_iter = file_columns_.begin() + 1;
        column_iter != file_columns_.end();
        ++column_iter) {
     auto column = *column_iter;
-    LOG_IF(FATAL, column->NumRows() != num_rows)
+    LOG_IF(FATAL, column->Children().size() == 0 &&
+           column->NumRows() != num_rows)
       << "Columns must have the same number of rows.  "
       << "Differing column: " << column->FullSchemaPath()
       << ", Number of rows: " << column->NumRows()
@@ -104,6 +112,10 @@ void ParquetFile::Flush() {
        column_iter != file_columns_.end();
        ++column_iter) {
     auto column = *column_iter;
+    if (column->Children().size() > 0) {
+      VLOG(2) << "Skipping column: " << column->FullSchemaPath();
+      continue;
+    }
     VLOG(2) << "Writing column: " << column->FullSchemaPath();
     VLOG(2) << "\t" << column->ToString();
     column->Flush(fd_, protocol_.get());

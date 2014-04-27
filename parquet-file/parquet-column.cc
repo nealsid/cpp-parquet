@@ -35,6 +35,22 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     column_write_offset_(-1L) {
 }
 
+ParquetColumn::ParquetColumn(const vector<string>& column_name,
+                             uint16_t column_level,
+                             FieldRepetitionType::type repetition_type)
+  : column_name_(column_name),
+    repetition_type_(repetition_type),
+    column_level_(column_level),
+    num_rows_(0),
+    num_datums_(0),
+    // I'm purposely using the constructor parameter in the next line,
+    // as opposed to data_type_, in order to be clear that I'm am
+    // avoiding a dependency on the order of variable declarations in
+    // the class.
+    data_ptr_(data_buffer_),
+    column_write_offset_(-1L) {
+}
+
 const vector<ParquetColumn*>& ParquetColumn::Children() const {
   return children_;
 }
@@ -72,8 +88,6 @@ string ParquetColumn::Name() const {
 }
 
 string ParquetColumn::ToString() const {
-  // TODO: there has got to be an alternative to BOOST that supports
-  // sane string concatenation and formatting.
   return this->FullSchemaPath() + "/" +
     parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->RepetitionType())
     + "/" + to_string(Children().size()) + " children"
@@ -86,7 +100,7 @@ string ParquetColumn::ToString() const {
 void ParquetColumn::AddRows(void* buf, uint16_t repetition_level,
                             uint32_t n) {
   CHECK_LT(repetition_level, column_level_) <<
-    "For adding repeated data as part of 1 record, using AddRepeatedData";
+    "For adding repeated data in this column, use AddRepeatedData";
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
@@ -200,11 +214,11 @@ void ParquetColumn::EncodeRepetitionLevels(uint8_t* encoded_repetition_levels,
                                            uint32_t* repetition_level_size) {
   CHECK_NOTNULL(repetition_level_size);
   if (RepetitionType() == FieldRepetitionType::REPEATED) {
-    VLOG(2) << "\tNon-required field, encoding repetition levels";
+    VLOG(2) << "\tRepeated field, encoding repetition levels";
     EncodeLevels(repetition_levels_, encoded_repetition_levels,
                  repetition_level_size);
   } else {
-    VLOG(2) << "\tRequired field, skipping repetition levels";
+    VLOG(2) << "\tNon-repeated field, skipping repetition levels";
     *repetition_level_size = 0;
   }
 }
@@ -222,6 +236,7 @@ void ParquetColumn::EncodeDefinitionLevels(uint8_t* encoded_definition_levels,
     *definition_level_size = 0;
   }
 }
+
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   LOG_IF(FATAL, Encoding() != Encoding::PLAIN)
     << "Encoding can only be plain at this time.";
@@ -230,7 +245,8 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
   VLOG(2) << "Inside flush for " << FullSchemaPath();
-  VLOG(2) << "\tData size: " << BytesForDataType(data_type_) * num_datums_
+  VLOG(2) << "\tData size: "
+          << (Children().size() == 0 ? BytesForDataType(data_type_) : 0) * num_datums_
           << " bytes.";
   VLOG(2) << "\tNumber of rows: " << NumRows();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
@@ -240,29 +256,30 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   EncodeRepetitionLevels(encoded_repetition_levels, &repetition_level_size);
   EncodeDefinitionLevels(encoded_definition_levels, &definition_level_size);
 
+  DataPageHeader data_header;
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);
-  uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
-                        + repetition_level_size + definition_level_size;
-  // We add 8 to this for the two ints at that indicate the length of
-  // the rep & def levels.
-  if (repetition_level_size > 0) {
-    uncompressed_bytes_ += 4;
+  if (Children().size() == 0) {
+    uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
+                          + repetition_level_size + definition_level_size;
+    // We add 8 to this for the two ints at that indicate the length of
+    // the rep & def levels.
+    if (repetition_level_size > 0) {
+      uncompressed_bytes_ += 4;
+    }
+    if (definition_level_size > 0) {
+      uncompressed_bytes_ += 4;
+    }
+    page_header.__set_uncompressed_page_size(uncompressed_bytes_);
+    // Obviously, this is a stop gap until compression support is added.
+    page_header.__set_compressed_page_size(uncompressed_bytes_);
+    data_header.__set_num_values(definition_levels_.size());
+    data_header.__set_encoding(Encoding::PLAIN);
+    // NB: For some reason, the following two must be set, even though
+    // they can default to PLAIN, even for required/nonrepeating fields.
+    // I'm not sure if it's part of the Parquet spec or a bug in
+    // parquet-dump.
   }
-  if (definition_level_size > 0) {
-    uncompressed_bytes_ += 4;
-  }
-  page_header.__set_uncompressed_page_size(uncompressed_bytes_);
-  // Obviously, this is a stop gap until compression support is added.
-  page_header.__set_compressed_page_size(uncompressed_bytes_);
-
-  DataPageHeader data_header;
-  data_header.__set_num_values(definition_levels_.size());
-  data_header.__set_encoding(Encoding::PLAIN);
-  // NB: For some reason, the following two must be set, even though
-  // they can default to PLAIN, even for required/nonrepeating fields.
-  // I'm not sure if it's part of the Parquet spec or a bug in
-  // parquet-dump.
   data_header.__set_definition_level_encoding(Encoding::RLE);
   data_header.__set_repetition_level_encoding(Encoding::RLE);
   page_header.__set_data_page_header(data_header);
@@ -322,12 +339,12 @@ ColumnMetaData ParquetColumn::ParquetColumnMetaData() const {
   ColumnMetaData column_metadata;
   column_metadata.__set_type(Type());
   column_metadata.__set_encodings({Encoding()});
-  column_metadata.__set_path_in_schema(column_name_);
   column_metadata.__set_codec(CompressionCodec());
   column_metadata.__set_num_values(definition_levels_.size());
   column_metadata.__set_total_uncompressed_size(uncompressed_bytes_);
   column_metadata.__set_total_compressed_size(uncompressed_bytes_);
   column_metadata.__set_data_page_offset(column_write_offset_);
+  column_metadata.__set_path_in_schema(column_name_);
   return column_metadata;
 }
 }  // namespace parquet_file

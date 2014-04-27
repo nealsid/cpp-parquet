@@ -43,6 +43,10 @@ class ParquetColumn {
                 Encoding::type encoding,
                 CompressionCodec::type compression_codec);
 
+  ParquetColumn(const vector<string>& column_name,
+                uint16_t column_level,
+                FieldRepetitionType::type repetition_type);
+
   // Set/get the children of this column
   void SetChildren(const vector<ParquetColumn*>& children);
   void AddChild(ParquetColumn* child);

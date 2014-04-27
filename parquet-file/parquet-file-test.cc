@@ -289,6 +289,98 @@ TEST_F(ParquetFileTest, OneColumn500NullsAndData) {
   output.Flush();
 }
 
+// Tests that the output works with nested fields.
+TEST_F(ParquetFileTest, OneColumnNestedData) {
+  LOG(INFO) << output_filename_;
+  ParquetFile output(output_filename_);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* new_column = nullptr;
+  ParquetColumn* old_column = root_column;
+  vector<string> schema_path;
+  for (int i = 1; i <= 50; ++i) {
+    schema_path.push_back("OptionalInts" + to_string(i));
+    if (i == 50) {
+      new_column =
+          new ParquetColumn(schema_path, parquet::Type::INT32,
+                            i,
+                            FieldRepetitionType::REQUIRED,
+                            Encoding::PLAIN,
+                            CompressionCodec::UNCOMPRESSED);
+    } else {
+      new_column =
+          new ParquetColumn(schema_path,
+                            i,
+                            FieldRepetitionType::REQUIRED);
+    }
+    old_column->SetChildren({new_column});
+    old_column = new_column;
+  }
+
+  output.SetSchema(root_column);
+  uint32_t data[500];
+  for (int i = 0; i < 500; ++i) {
+    data[i] = i;
+  }
+  for (int i = 0; i < 500; ++i) {
+    old_column->AddRows(data + i, 0, 1);
+  }
+  output.Flush();
+}
+
+// Tests that the output works with nested optional fields at the
+// bottom of the schema tree (i.e. innermost field)
+TEST_F(ParquetFileTest, OneColumnNestedOptionalData) {
+  LOG(INFO) << output_filename_;
+  ParquetFile output(output_filename_);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, parquet::Type::INT32,
+                      0,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* new_column = nullptr;
+  ParquetColumn* old_column = root_column;
+  vector<string> schema_path;
+  for (int i = 1; i <= 50; ++i) {
+    schema_path.push_back("OptionalInts" + to_string(i));
+    if (i == 50) {
+      new_column =
+          new ParquetColumn(schema_path, parquet::Type::INT32,
+                            i,
+                            FieldRepetitionType::OPTIONAL,
+                            Encoding::PLAIN,
+                            CompressionCodec::UNCOMPRESSED);
+    } else {
+      new_column =
+          new ParquetColumn(schema_path,
+                            i,
+                            FieldRepetitionType::REQUIRED);
+    }
+    old_column->SetChildren({new_column});
+    old_column = new_column;
+  }
+
+  output.SetSchema(root_column);
+  uint32_t data[250];
+  for (int i = 0; i < 250; ++i) {
+    data[i] = i;
+  }
+  for (int i = 0; i < 250; ++i) {
+    old_column->AddRows(data + i, 0, 1);
+    old_column->AddNulls(0, 0, 1);
+  }
+  output.Flush();
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
