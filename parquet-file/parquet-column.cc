@@ -240,6 +240,9 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   LOG_IF(FATAL, CompressionCodec() != CompressionCodec::UNCOMPRESSED)
     << "Compression is not supported at this time.";
 
+  LOG_IF(FATAL, Children().size() != 0)  <<
+      "Flush called on container column";
+
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
   VLOG(2) << "Inside flush for " << FullSchemaPath();
   VLOG(2) << "\tData size: "
@@ -247,7 +250,6 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
           << " bytes.";
   VLOG(2) << "\tNumber of rows: " << NumRows();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
-
   uint8_t encoded_repetition_levels[1024], encoded_definition_levels[1024];
   uint32_t repetition_level_size = 0, definition_level_size = 0;
   EncodeRepetitionLevels(encoded_repetition_levels, &repetition_level_size);
@@ -256,27 +258,26 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   DataPageHeader data_header;
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);
-  if (Children().size() == 0) {
-    uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
-                          + repetition_level_size + definition_level_size;
-    // We add 8 to this for the two ints at that indicate the length of
-    // the rep & def levels.
-    if (repetition_level_size > 0) {
-      uncompressed_bytes_ += 4;
-    }
-    if (definition_level_size > 0) {
-      uncompressed_bytes_ += 4;
-    }
-    page_header.__set_uncompressed_page_size(uncompressed_bytes_);
-    // Obviously, this is a stop gap until compression support is added.
-    page_header.__set_compressed_page_size(uncompressed_bytes_);
-    data_header.__set_num_values(definition_levels_.size());
-    data_header.__set_encoding(Encoding::PLAIN);
-    // NB: For some reason, the following two must be set, even though
-    // they can default to PLAIN, even for required/nonrepeating fields.
-    // I'm not sure if it's part of the Parquet spec or a bug in
-    // parquet-dump.
+
+  uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
+                        + repetition_level_size + definition_level_size;
+  // We add 8 to this for the two ints at that indicate the length of
+  // the rep & def levels.
+  if (repetition_level_size > 0) {
+    uncompressed_bytes_ += 4;
   }
+  if (definition_level_size > 0) {
+    uncompressed_bytes_ += 4;
+  }
+  page_header.__set_uncompressed_page_size(uncompressed_bytes_);
+  // Obviously, this is a stop gap until compression support is added.
+  page_header.__set_compressed_page_size(uncompressed_bytes_);
+  data_header.__set_num_values(definition_levels_.size());
+  data_header.__set_encoding(Encoding::PLAIN);
+  // NB: For some reason, the following two must be set, even though
+  // they can default to PLAIN, even for required/nonrepeating fields.
+  // I'm not sure if it's part of the Parquet spec or a bug in
+  // parquet-dump.
   data_header.__set_definition_level_encoding(Encoding::RLE);
   data_header.__set_repetition_level_encoding(Encoding::RLE);
   page_header.__set_data_page_header(data_header);
@@ -292,7 +293,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     size_t bytes_written = 0;
     for (int i = 0; i < repetition_level_size; ++i) {
       bytes_written +=
-        write(fd, encoded_repetition_levels + i, 1);
+          write(fd, encoded_repetition_levels + i, 1);
     }
     if (bytes_written != repetition_level_size) {
       LOG(WARNING) << "Only " << bytes_written << " of "
@@ -309,7 +310,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     size_t bytes_written = 0;
     for (int i = 0 ; i < definition_level_size; ++i) {
       bytes_written +=
-        write(fd, encoded_definition_levels + i, 1);
+          write(fd, encoded_definition_levels + i, 1);
     }
     if (bytes_written != definition_level_size) {
       LOG(WARNING) << "Only " << bytes_written << " of "
@@ -321,7 +322,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 
   for (int i = 0; i < NumDatums(); ++i) {
     LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
-      << "Exceeded data added to internal buffer";
+        << "Exceeded data added to internal buffer";
     ssize_t written = write(fd, data_buffer_ + i * bytes_per_datum_,
                             bytes_per_datum_);
     if (written != bytes_per_datum_) {
