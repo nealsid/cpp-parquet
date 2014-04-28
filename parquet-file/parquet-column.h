@@ -37,14 +37,15 @@ class ParquetColumn {
   // as they are in Parquet.  column__level represents the level of
   // this column in the schema tree (it's used for setting the
   // repetition & definition levels)
-  ParquetColumn(const vector<string>& name, Type::type data_type,
-                uint16_t column_Level,
+  ParquetColumn(const vector<string>& column_name,
+                parquet::Type::type data_type,
+                uint16_t max_repetition_level,
+                uint16_t max_definition_level,
                 FieldRepetitionType::type repetition_type,
                 Encoding::type encoding,
                 CompressionCodec::type compression_codec);
 
   ParquetColumn(const vector<string>& column_name,
-                uint16_t column_level,
                 FieldRepetitionType::type repetition_type);
 
   // Set/get the children of this column
@@ -93,7 +94,8 @@ class ParquetColumn {
   // Helper method to encode a vector of 8-bit integers into an output
   // buffer.  Used for repetition & definition level encoding.
   void EncodeLevels(const vector<uint8_t>& level_vector,
-                    uint8_t* output_buffer, uint32_t* num_bytes);
+                    uint8_t* output_buffer, uint32_t* num_bytes,
+                    uint16_t max_level);
 
   // Following two methods call EncodeLevels with the right parameters
   // for encoding those specific level vectors (repetition or
@@ -137,12 +139,10 @@ class ParquetColumn {
   unsigned char* data_ptr_;
   // Repetition level array. Run-length encoded before being written.
   vector<uint8_t> repetition_levels_;
-  // Integer representing column level in the schema tree.  It is used
-  // for the repetition & definitino levels for repeated & optional
-  // data, and consistency checks.  Keeping it as uint16_t means that
-  // we can only support schemas that nest up to 65536 repeated
-  // fields.  "64k nested fields ought to be enough for anybody."
-  uint16_t column_level_;
+  // Integer representing max repetition level in the schema tree.
+  uint16_t max_repetition_level_;
+  // Integer representing max definition level.
+  uint16_t max_definition_level_;
   // Definition level array.  Also RLE before being written.
   vector<uint8_t> definition_levels_;
   // The offset into the file where column data is written.

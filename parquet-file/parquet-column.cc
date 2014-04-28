@@ -14,13 +14,15 @@ namespace parquet_file {
 
 ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              parquet::Type::type data_type,
-                             uint16_t column_level,
+                             uint16_t max_repetition_level,
+                             uint16_t max_definition_level,
                              FieldRepetitionType::type repetition_type,
                              Encoding::type encoding,
                              CompressionCodec::type compression_codec)
   : column_name_(column_name),
     repetition_type_(repetition_type),
-    column_level_(column_level),
+    max_definition_level_(max_definition_level),
+    max_repetition_level_(max_repetition_level),
     encoding_(encoding),
     data_type_(data_type),
     num_rows_(0),
@@ -36,17 +38,11 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
 }
 
 ParquetColumn::ParquetColumn(const vector<string>& column_name,
-                             uint16_t column_level,
                              FieldRepetitionType::type repetition_type)
   : column_name_(column_name),
     repetition_type_(repetition_type),
-    column_level_(column_level),
     num_rows_(0),
     num_datums_(0),
-    // I'm purposely using the constructor parameter in the next line,
-    // as opposed to data_type_, in order to be clear that I'm am
-    // avoiding a dependency on the order of variable declarations in
-    // the class.
     data_ptr_(data_buffer_),
     column_write_offset_(-1L) {
 }
@@ -99,7 +95,7 @@ string ParquetColumn::ToString() const {
 
 void ParquetColumn::AddRows(void* buf, uint16_t repetition_level,
                             uint32_t n) {
-  CHECK_LT(repetition_level, column_level_) <<
+  CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
@@ -109,7 +105,7 @@ void ParquetColumn::AddRows(void* buf, uint16_t repetition_level,
   num_datums_ += n;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(repetition_level);
-    definition_levels_.push_back(column_level_);
+    definition_levels_.push_back(max_definition_level_);
   }
 }
 
@@ -124,10 +120,10 @@ void ParquetColumn::AddRepeatedData(void *buf,
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
   repetition_levels_.push_back(current_repetition_level);
-  definition_levels_.push_back(column_level_);
+  definition_levels_.push_back(max_definition_level_);
   for (int i = 1; i < n; ++i) {
-    repetition_levels_.push_back(column_level_);
-    definition_levels_.push_back(column_level_);
+    repetition_levels_.push_back(max_repetition_level_);
+    definition_levels_.push_back(max_definition_level_);
   }
   num_rows_ += 1;
   num_datums_ += n;
@@ -190,10 +186,11 @@ void ParquetColumn::AddChild(ParquetColumn* child) {
 }
 
 void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
-                                 uint8_t* output_buffer, uint32_t* num_bytes) {
+                                 uint8_t* output_buffer, uint32_t* num_bytes,
+                                 uint16_t max_level) {
   CHECK_NOTNULL(output_buffer);
   CHECK_NOTNULL(num_bytes);
-  impala::RleEncoder encoder(output_buffer, 1024, column_level_);
+  impala::RleEncoder encoder(output_buffer, 1024, max_level);
   CHECK_GE(1024, encoder.MaxBufferSize(level_vector.size()))
     << "Hardcoded buffer for 1k levels is not big enough";
   VLOG(2) << "\tLevels size: " << level_vector.size();
@@ -216,7 +213,7 @@ void ParquetColumn::EncodeRepetitionLevels(uint8_t* encoded_repetition_levels,
   if (RepetitionType() == FieldRepetitionType::REPEATED) {
     VLOG(2) << "\tRepeated field, encoding repetition levels";
     EncodeLevels(repetition_levels_, encoded_repetition_levels,
-                 repetition_level_size);
+                 repetition_level_size, max_repetition_level_);
   } else {
     VLOG(2) << "\tNon-repeated field, skipping repetition levels";
     *repetition_level_size = 0;
@@ -230,7 +227,7 @@ void ParquetColumn::EncodeDefinitionLevels(uint8_t* encoded_definition_levels,
       RepetitionType() == FieldRepetitionType::OPTIONAL) {
     VLOG(2) << "\tNon-required/Non-optional field, encoding definition levels";
     EncodeLevels(definition_levels_, encoded_definition_levels,
-                 definition_level_size);
+                 definition_level_size, max_definition_level_);
   } else {
     VLOG(2) << "\tSingular required field, skipping definition levels";
     *definition_level_size = 0;

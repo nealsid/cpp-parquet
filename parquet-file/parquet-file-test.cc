@@ -54,24 +54,20 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
 
   ParquetColumn* one_column =
     new ParquetColumn({"AllInts"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REQUIRED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* two_column =
     new ParquetColumn({"AllInts1"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REQUIRED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
   root_column->SetChildren({one_column, two_column});
   output.SetSchema(root_column);
   uint32_t data[500];
@@ -94,22 +90,18 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* repeated_column =
     new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REPEATED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* required_column =
     new ParquetColumn({"AllIntsRequired"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REQUIRED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
@@ -132,15 +124,11 @@ TEST_F(ParquetFileTest, OneColumn250Records) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* repeated_column =
     new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REPEATED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
@@ -166,22 +154,18 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeatedAndNonRepeatedData) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* repeated_column =
     new ParquetColumn({"AllIntsRepeated"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REPEATED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* required_column =
     new ParquetColumn({"AllIntsRequired"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::REQUIRED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
@@ -205,16 +189,13 @@ TEST_F(ParquetFileTest, OneColumnOptionalData) {
   LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
+
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* optional_column =
     new ParquetColumn({"OptionalInts"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::OPTIONAL,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
@@ -237,15 +218,11 @@ TEST_F(ParquetFileTest, OneColumn500Nulls) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* optional_column =
     new ParquetColumn({"OptionalInts"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::OPTIONAL,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
@@ -263,15 +240,11 @@ TEST_F(ParquetFileTest, OneColumn500NullsAndData) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* optional_column =
     new ParquetColumn({"OptionalInts"}, parquet::Type::INT32,
-                      1,
+                      1, 1,
                       FieldRepetitionType::OPTIONAL,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
@@ -295,11 +268,7 @@ TEST_F(ParquetFileTest, OneColumnNestedData) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* new_column = nullptr;
   ParquetColumn* old_column = root_column;
@@ -309,14 +278,13 @@ TEST_F(ParquetFileTest, OneColumnNestedData) {
     if (i == 50) {
       new_column =
           new ParquetColumn(schema_path, parquet::Type::INT32,
-                            i,
+                            1, 1,
                             FieldRepetitionType::REQUIRED,
                             Encoding::PLAIN,
                             CompressionCodec::UNCOMPRESSED);
     } else {
       new_column =
           new ParquetColumn(schema_path,
-                            i,
                             FieldRepetitionType::REQUIRED);
     }
     old_column->SetChildren({new_column});
@@ -341,11 +309,7 @@ TEST_F(ParquetFileTest, OneColumnNestedOptionalData) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
-    new ParquetColumn({"root"}, parquet::Type::INT32,
-                      0,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
 
   ParquetColumn* new_column = nullptr;
   ParquetColumn* old_column = root_column;
@@ -355,14 +319,13 @@ TEST_F(ParquetFileTest, OneColumnNestedOptionalData) {
     if (i == 50) {
       new_column =
           new ParquetColumn(schema_path, parquet::Type::INT32,
-                            i,
+                            1, 1,
                             FieldRepetitionType::OPTIONAL,
                             Encoding::PLAIN,
                             CompressionCodec::UNCOMPRESSED);
     } else {
       new_column =
           new ParquetColumn(schema_path,
-                            i,
                             FieldRepetitionType::REQUIRED);
     }
     old_column->SetChildren({new_column});
