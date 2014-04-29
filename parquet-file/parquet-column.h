@@ -68,7 +68,7 @@ class ParquetColumn {
 
   // Method that adds some data to this column.  Each datum in buf
   // is considered it's own record, if this field is repeated.
-  void AddRows(void* buf, uint16_t repetition_level, uint32_t n);
+  void AddRecords(void* buf, uint16_t repetition_level, uint32_t n);
   // Adds repeated data to this column.  All data is considered part
   // of the same record.
   void AddRepeatedData(void *buf, uint16_t current_repetition_level,
@@ -78,7 +78,7 @@ class ParquetColumn {
                 uint16_t current_definition_level,
                 uint32_t n);
 
-  uint32_t NumRows() const;
+  uint32_t NumRecords() const;
   uint32_t NumDatums() const;
 
 
@@ -122,13 +122,13 @@ class ParquetColumn {
   // Bookkeeping
   // How many did the page header + R&D levels + data take up?
   uint32_t uncompressed_bytes_;
-  // how many rows are in this column?  This includes
-  // NULLs and counts repeated fields as 1 row.
-  uint32_t num_rows_;
+  // how many records are in this column?  This includes
+  // NULLs.  Repeated fields are counted as 1 record.
+  uint32_t num_records_;
   // How many pieces of data are in this column.  For this field, repeated
   // data is not counted as one record.  So if you had an array field, and
   // an individual record contained [1,2,3,4,5],  num_datums_ would 5, and
-  // num_rows_ would be 1.
+  // num_records_ would be 1.
   uint32_t num_datums_;
   // The number of bytes each instance of the datatype stored in this
   // column takes.

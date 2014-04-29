@@ -25,7 +25,7 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     max_repetition_level_(max_repetition_level),
     encoding_(encoding),
     data_type_(data_type),
-    num_rows_(0),
+    num_records_(0),
     num_datums_(0),
     compression_codec_(compression_codec),
     // I'm purposely using the constructor parameter in the next line,
@@ -41,7 +41,7 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              FieldRepetitionType::type repetition_type)
   : column_name_(column_name),
     repetition_type_(repetition_type),
-    num_rows_(0),
+    num_records_(0),
     num_datums_(0),
     data_ptr_(data_buffer_),
     column_write_offset_(-1L) {
@@ -88,12 +88,12 @@ string ParquetColumn::ToString() const {
     parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->RepetitionType())
     + "/" + to_string(Children().size()) + " children"
     + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->Type())
-    + "/" + to_string(num_rows_) + " rows"
+    + "/" + to_string(num_records_) + " records"
     + "/" + to_string(num_datums_) + " pieces of data"
     + "/" + to_string(bytes_per_datum_) + " bytes per datum";
 }
 
-void ParquetColumn::AddRows(void* buf, uint16_t repetition_level,
+void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
                             uint32_t n) {
   CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
@@ -101,7 +101,7 @@ void ParquetColumn::AddRows(void* buf, uint16_t repetition_level,
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
   data_ptr_ += num_bytes;
-  num_rows_ += n;
+  num_records_ += n;
   num_datums_ += n;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(repetition_level);
@@ -125,7 +125,7 @@ void ParquetColumn::AddRepeatedData(void *buf,
     repetition_levels_.push_back(max_repetition_level_);
     definition_levels_.push_back(max_definition_level_);
   }
-  num_rows_ += 1;
+  num_records_ += 1;
   num_datums_ += n;
 }
 
@@ -138,11 +138,11 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
     repetition_levels_.push_back(current_repetition_level);
     definition_levels_.push_back(current_definition_level);
   }
-  num_rows_ += n;
+  num_records_ += n;
 }
 
-uint32_t ParquetColumn::NumRows() const {
-  return num_rows_;
+uint32_t ParquetColumn::NumRecords() const {
+  return num_records_;
 }
 
 uint32_t ParquetColumn::NumDatums() const {
@@ -248,7 +248,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tData size: "
           << (Children().size() == 0 ? BytesForDataType(data_type_) : 0) * num_datums_
           << " bytes.";
-  VLOG(2) << "\tNumber of rows: " << NumRows();
+  VLOG(2) << "\tNumber of records: " << NumRecords();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
   uint8_t encoded_repetition_levels[1024], encoded_definition_levels[1024];
   uint32_t repetition_level_size = 0, definition_level_size = 0;

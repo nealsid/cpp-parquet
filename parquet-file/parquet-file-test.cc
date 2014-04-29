@@ -32,8 +32,8 @@ class ParquetFileTest : public ::testing::Test {
   virtual void SetUp() {
     // Code here will be called immediately after the constructor (right
     // before each test).
-    LOG(INFO) << "Assigning filename";
     output_filename_.assign(mktemp(template_));
+    LOG(INFO) << "Assigning filename: " << output_filename_;
   }
 
   virtual void TearDown() {
@@ -49,7 +49,6 @@ class ParquetFileTest : public ::testing::Test {
 
 // Tests that the output works with two columns of required integers.
 TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* one_column =
@@ -74,11 +73,11 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
   for (int i = 0; i < 500; ++i) {
     data[i] = i;
   }
-  one_column->AddRows(data, 0, 500);
+  one_column->AddRecords(data, 0, 500);
   for (int i = 0; i < 500; ++i) {
     data[i] = i;
   }
-  two_column->AddRows(data, 0, 500);
+  two_column->AddRecords(data, 0, 500);
   output.Flush();
 }
 
@@ -86,7 +85,6 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
 // and one non-array.  The array column has 1 array of 500 integers
 // the other column has 1 individual integer in the records.
 TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -113,14 +111,13 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
     data[i] = i;
   }
   repeated_column->AddRepeatedData(data, 0, 500);
-  required_column->AddRows(data, 0, 1);
+  required_column->AddRecords(data, 0, 1);
   output.Flush();
 }
 
 // Tests that the output works with one column of array integers.  The
 // test has 250 records of 2 element arrays.
 TEST_F(ParquetFileTest, OneColumn250Records) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -150,7 +147,6 @@ TEST_F(ParquetFileTest, OneColumn250Records) {
 // 1 individual integer, for a total of 2 different records.  The
 // other column has 2 individual integers in the records.
 TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeatedAndNonRepeatedData) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -177,16 +173,15 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeatedAndNonRepeatedData) {
     data[i] = i;
   }
   repeated_column->AddRepeatedData(data, 0, 4);
-  repeated_column->AddRows(data + 4, 0, 1);
+  repeated_column->AddRecords(data + 4, 0, 1);
 
-  required_column->AddRows(data, 0, 2);
+  required_column->AddRecords(data, 0, 2);
   output.Flush();
 }
 
 // Tests that the output works with optional data even if all data is
 // filled in.
 TEST_F(ParquetFileTest, OneColumnOptionalData) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
 
@@ -207,14 +202,13 @@ TEST_F(ParquetFileTest, OneColumnOptionalData) {
     data[i] = 50 * i;
   }
   for (int i = 0; i < 5; ++i) {
-    optional_column->AddRows(data + i, 0, 1);
+    optional_column->AddRecords(data + i, 0, 1);
   }
   output.Flush();
 }
 
 // Tests that the output works with optional data with nulls
 TEST_F(ParquetFileTest, OneColumn500Nulls) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -236,7 +230,6 @@ TEST_F(ParquetFileTest, OneColumn500Nulls) {
 // Tests that the output works with optional data with interspersed
 // nulls & data.
 TEST_F(ParquetFileTest, OneColumn500NullsAndData) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -257,14 +250,13 @@ TEST_F(ParquetFileTest, OneColumn500NullsAndData) {
   }
   for (int i = 0; i < 500; ++i) {
     optional_column->AddNulls(0, 0, 1);
-    optional_column->AddRows(data + i, 0, 1);
+    optional_column->AddRecords(data + i, 0, 1);
   }
   output.Flush();
 }
 
 // Tests that the output works with nested fields.
 TEST_F(ParquetFileTest, OneColumnNestedData) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -297,7 +289,7 @@ TEST_F(ParquetFileTest, OneColumnNestedData) {
     data[i] = i;
   }
   for (int i = 0; i < 500; ++i) {
-    old_column->AddRows(data + i, 0, 1);
+    old_column->AddRecords(data + i, 0, 1);
   }
   output.Flush();
 }
@@ -305,7 +297,6 @@ TEST_F(ParquetFileTest, OneColumnNestedData) {
 // Tests that the output works with nested optional fields at the
 // bottom of the schema tree (i.e. innermost field)
 TEST_F(ParquetFileTest, OneColumnNestedOptionalData) {
-  LOG(INFO) << output_filename_;
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -338,7 +329,7 @@ TEST_F(ParquetFileTest, OneColumnNestedOptionalData) {
     data[i] = i;
   }
   for (int i = 0; i < 250; ++i) {
-    old_column->AddRows(data + i, 0, 1);
+    old_column->AddRecords(data + i, 0, 1);
     old_column->AddNulls(0, 0, 1);
   }
   output.Flush();

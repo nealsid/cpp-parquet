@@ -10,12 +10,12 @@
 #include <thrift/transport/TFDTransport.h>
 #include <thrift/protocol/TJSONProtocol.h>
 
+#include <set>
 #include <string>
 
 using apache::thrift::transport::TFDTransport;
 using apache::thrift::protocol::TCompactProtocol;
 using apache::thrift::protocol::TJSONProtocol;
-
 using parquet::ColumnChunk;
 using parquet::ColumnMetaData;
 using parquet::CompressionCodec;
@@ -27,6 +27,7 @@ using parquet::PageHeader;
 using parquet::PageType;
 using parquet::RowGroup;
 using parquet::SchemaElement;
+using std::set;
 
 const char* kParquetMagicBytes = "PAR1";
 
@@ -67,6 +68,18 @@ void ParquetFile::DepthFirstSchemaTraversal(ParquetColumn* root_column,
   }
 }
 
+void ParquetFile::NumberOfRecords(set<uint64_t>* column_record_counts) const {
+  CHECK_NOTNULL(column_record_counts);
+  column_record_counts->clear();
+  for (auto column = file_columns_.begin() + 1;
+       column != file_columns_.end();
+       ++column) {
+    if ((*column)->Children().size() == 0) {
+      column_record_counts->insert((*column)->NumRecords());
+    }
+  }
+}
+
 void ParquetFile::Flush() {
   boost::shared_ptr<TFDTransport> stderr_transport_ptr(new TFDTransport(2));
 
@@ -79,33 +92,21 @@ void ParquetFile::Flush() {
   VLOG(2) << "Offset at beginning of flush: " << to_string(current_offset);
   assert(current_offset == strlen(kParquetMagicBytes));
 
-  uint32_t num_rows = -1;
-  for (auto column = file_columns_.begin() + 1;
-       column != file_columns_.end();
-       ++column) {
-    if ((*column)->Children().size() == 0) {
-      num_rows = (*column)->NumRows();
-      break;
-    }
-  }
-  LOG_IF(WARNING, num_rows == 0)
-    << "Number of rows in first leaf-node column is 0";
-  for (auto column_iter = file_columns_.begin() + 1;
-       column_iter != file_columns_.end();
-       ++column_iter) {
-    auto column = *column_iter;
-    LOG_IF(FATAL, column->Children().size() == 0 &&
-           column->NumRows() != num_rows)
-      << "Columns must have the same number of rows.  "
-      << "Differing column: " << column->FullSchemaPath()
-      << ", Number of rows: " << column->NumRows()
-      << ", expected number of rows: " << num_rows;
-  }
-  VLOG(2) << "Number of rows of data: " << num_rows;
-  file_meta_data_.__set_num_rows(num_rows);
+  uint32_t num_recordss = -1;
+  set<uint64_t> column_record_counts;
+  NumberOfRecords(&column_record_counts);
+  LOG_IF(FATAL, column_record_counts.size() > 1)
+      << "All columns must have the same number of records: "
+      << column_record_counts.size();
+
+  uint64_t num_records = *(column_record_counts.begin());
+  LOG_IF(WARNING,  num_records == 0)
+    << "Number of records in first leaf-node column is 0";
+  VLOG(2) << "Number of records of data: " << num_records;
+  file_meta_data_.__set_num_rows(num_records);
 
   RowGroup row_group;
-  row_group.__set_num_rows(num_rows);
+  row_group.__set_num_rows(num_records);
   row_group.__set_total_byte_size(0);
   vector<ColumnChunk> column_chunks;
   for (auto column_iter = file_columns_.begin() + 1 ;

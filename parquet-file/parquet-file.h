@@ -9,6 +9,7 @@
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TFDTransport.h>
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,7 @@ using apache::thrift::protocol::TCompactProtocol;
 using parquet::CompressionCodec;
 using parquet::FileMetaData;
 using parquet::SchemaElement;
+using std::set;
 using std::string;
 using std::vector;
 
@@ -46,10 +48,12 @@ class ParquetFile {
                                  ParquetColumnWalker* callback);
 
 
+  // Fills the passed in set with the number of rows in all
+  // data-containing columns.
+  void NumberOfRecords(set<uint64_t>* column_record_counts) const;
+
   // A vector representing the DFS traversal of the columns.
   vector<ParquetColumn*> file_columns_;
-  // Number of rows in all columns.
-  int num_rows_;
 
   // Parquet Thrift structure that has metadata about the entire file.
   FileMetaData file_meta_data_;
