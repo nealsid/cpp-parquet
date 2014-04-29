@@ -186,51 +186,53 @@ void ParquetColumn::AddChild(ParquetColumn* child) {
 }
 
 void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
-                                 uint8_t* output_buffer, uint32_t* num_bytes,
+                                 vector<uint8_t>* output_vector,
                                  uint16_t max_level) {
-  CHECK_NOTNULL(output_buffer);
-  CHECK_NOTNULL(num_bytes);
-  impala::RleEncoder encoder(output_buffer, 1024, max_level);
-  CHECK_GE(1024, encoder.MaxBufferSize(level_vector.size()))
-    << "Hardcoded buffer for 1k levels is not big enough";
+  CHECK_NOTNULL(output_vector);
+  int max_buffer_size =
+      impala::RleEncoder::MaxBufferSize(level_vector.size(), max_level);
+  shared_ptr<uint8_t> output_buffer(new uint8_t[max_buffer_size]);
+  impala::RleEncoder encoder(output_buffer.get(), max_buffer_size, max_level);
   VLOG(2) << "\tLevels size: " << level_vector.size();
   for (uint8_t level : level_vector) {
     VLOG(3) << "\t\t" << to_string(level);
     encoder.Put(level);
   }
   encoder.Flush();
-  *num_bytes = encoder.len();
-  VLOG(2) << "\tLevels occupy " << *num_bytes
+  uint32_t num_bytes = encoder.len();
+  VLOG(2) << "\tLevels occupy " << num_bytes
           << " bytes encoded";
+  output_vector->assign(output_buffer.get(), output_buffer.get() + num_bytes);
+  VLOG(2) << "\tOutput vector size: " << output_vector->size();
   VLOG(2) << "\tLevel bitstream (first 2 bytes only): "
-          << std::bitset<8>(output_buffer[0])
-          << " " << std::bitset<8>(output_buffer[1]);
+          << std::bitset<8>(output_vector->at(0))
+          << " " << std::bitset<8>(output_vector->at(1));
 }
 
-void ParquetColumn::EncodeRepetitionLevels(uint8_t* encoded_repetition_levels,
-                                           uint32_t* repetition_level_size) {
-  CHECK_NOTNULL(repetition_level_size);
+void ParquetColumn::EncodeRepetitionLevels(
+    vector<uint8_t>* encoded_repetition_levels) {
+  CHECK_NOTNULL(encoded_repetition_levels);
+  encoded_repetition_levels->clear();
   if (RepetitionType() == FieldRepetitionType::REPEATED) {
     VLOG(2) << "\tRepeated field, encoding repetition levels";
     EncodeLevels(repetition_levels_, encoded_repetition_levels,
-                 repetition_level_size, max_repetition_level_);
+                 max_repetition_level_);
   } else {
     VLOG(2) << "\tNon-repeated field, skipping repetition levels";
-    *repetition_level_size = 0;
   }
 }
 
-void ParquetColumn::EncodeDefinitionLevels(uint8_t* encoded_definition_levels,
-                                           uint32_t* definition_level_size) {
-  CHECK_NOTNULL(definition_level_size);
+void ParquetColumn::EncodeDefinitionLevels(
+    vector<uint8_t>* encoded_definition_levels) {
+  CHECK_NOTNULL(encoded_definition_levels);
+  encoded_definition_levels->clear();
   if (RepetitionType() == FieldRepetitionType::REPEATED ||
       RepetitionType() == FieldRepetitionType::OPTIONAL) {
     VLOG(2) << "\tNon-required/Non-optional field, encoding definition levels";
     EncodeLevels(definition_levels_, encoded_definition_levels,
-                 definition_level_size, max_definition_level_);
+                 max_definition_level_);
   } else {
     VLOG(2) << "\tSingular required field, skipping definition levels";
-    *definition_level_size = 0;
   }
 }
 
@@ -250,10 +252,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
           << " bytes.";
   VLOG(2) << "\tNumber of records: " << NumRecords();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
-  uint8_t encoded_repetition_levels[1024], encoded_definition_levels[1024];
-  uint32_t repetition_level_size = 0, definition_level_size = 0;
-  EncodeRepetitionLevels(encoded_repetition_levels, &repetition_level_size);
-  EncodeDefinitionLevels(encoded_definition_levels, &definition_level_size);
+  vector<uint8_t> encoded_repetition_levels, encoded_definition_levels;
+  EncodeRepetitionLevels(&encoded_repetition_levels);
+  EncodeDefinitionLevels(&encoded_definition_levels);
+  uint32_t repetition_level_size = encoded_repetition_levels.size();
+  uint32_t definition_level_size = encoded_definition_levels.size();
 
   DataPageHeader data_header;
   PageHeader page_header;
@@ -287,11 +290,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tTotal uncompressed bytes: " << uncompressed_bytes_;
 
   if (repetition_level_size > 0) {
-    FlushLevels(fd, repetition_level_size, encoded_repetition_levels);
+    FlushLevels(fd, encoded_repetition_levels);
   }
 
   if (definition_level_size > 0) {
-    FlushLevels(fd, definition_level_size, encoded_definition_levels);
+    FlushLevels(fd, encoded_definition_levels);
   }
 
   for (int i = 0; i < NumDatums(); ++i) {
@@ -307,15 +310,15 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
 
-void ParquetColumn::FlushLevels(int fd, uint32_t num_elements,
-                                const uint8_t* levels_array) {
+void ParquetColumn::FlushLevels(int fd, const vector<uint8_t>& levels_array) {
   VLOG(3) << "\tOffset before writing size: " << lseek(fd, 0, SEEK_CUR);
+  uint32_t num_elements = levels_array.size();
   write(fd, &num_elements, 4);
   VLOG(3) << "\tOffset after writing size: " << lseek(fd, 0, SEEK_CUR);
   size_t bytes_written = 0;
   for (int i = 0; i < num_elements; ++i) {
     bytes_written +=
-        write(fd, levels_array + i, 1);
+        write(fd, &(levels_array[i]), 1);
   }
   if (bytes_written != num_elements) {
     LOG(WARNING) << "Only " << bytes_written << " of "
