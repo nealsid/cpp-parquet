@@ -287,37 +287,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   VLOG(2) << "\tTotal uncompressed bytes: " << uncompressed_bytes_;
 
   if (repetition_level_size > 0) {
-    VLOG(3) << "\tOffset before rep size: " << lseek(fd, 0, SEEK_CUR);
-    write(fd, &repetition_level_size, 4);
-    VLOG(3) << "\tOffset after rep size: " << lseek(fd, 0, SEEK_CUR);
-    size_t bytes_written = 0;
-    for (int i = 0; i < repetition_level_size; ++i) {
-      bytes_written +=
-          write(fd, encoded_repetition_levels + i, 1);
-    }
-    if (bytes_written != repetition_level_size) {
-      LOG(WARNING) << "Only " << bytes_written << " of "
-                   << repetition_level_size
-                   << " for repetition levels were written.";
-    }
-    VLOG(3) << "\tOffset after rep levels written: " << lseek(fd, 0, SEEK_CUR);
+    FlushLevels(fd, repetition_level_size, encoded_repetition_levels);
   }
 
   if (definition_level_size > 0) {
-    write(fd, &definition_level_size, 4);
-    VLOG(3) << "\tOffset after def size: " << lseek(fd, 0, SEEK_CUR);
-
-    size_t bytes_written = 0;
-    for (int i = 0 ; i < definition_level_size; ++i) {
-      bytes_written +=
-          write(fd, encoded_definition_levels + i, 1);
-    }
-    if (bytes_written != definition_level_size) {
-      LOG(WARNING) << "Only " << bytes_written << " of "
-                   << definition_level_size
-                   << " for definition levels were written.";
-    }
-    VLOG(3) << "\tOffset after def levels written: " << lseek(fd, 0, SEEK_CUR);
+    FlushLevels(fd, definition_level_size, encoded_definition_levels);
   }
 
   for (int i = 0; i < NumDatums(); ++i) {
@@ -331,6 +305,24 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     }
   }
   VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
+}
+
+void ParquetColumn::FlushLevels(int fd, uint32_t num_elements,
+                                const uint8_t* levels_array) {
+  VLOG(3) << "\tOffset before writing size: " << lseek(fd, 0, SEEK_CUR);
+  write(fd, &num_elements, 4);
+  VLOG(3) << "\tOffset after writing size: " << lseek(fd, 0, SEEK_CUR);
+  size_t bytes_written = 0;
+  for (int i = 0; i < num_elements; ++i) {
+    bytes_written +=
+        write(fd, levels_array + i, 1);
+  }
+  if (bytes_written != num_elements) {
+    LOG(WARNING) << "Only " << bytes_written << " of "
+                 << num_elements
+                 << " for repetition levels were written.";
+  }
+  VLOG(3) << "\tOffset after levels written: " << lseek(fd, 0, SEEK_CUR);
 }
 
 ColumnMetaData ParquetColumn::ParquetColumnMetaData() const {

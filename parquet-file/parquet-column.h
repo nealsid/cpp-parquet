@@ -45,6 +45,7 @@ class ParquetColumn {
                 Encoding::type encoding,
                 CompressionCodec::type compression_codec);
 
+  // Constructor for a container column.
   ParquetColumn(const vector<string>& column_name,
                 FieldRepetitionType::type repetition_type);
 
@@ -59,6 +60,7 @@ class ParquetColumn {
   Type::type Type() const;
   CompressionCodec::type CompressionCodec() const;
   string Name() const;
+
   // A '.'-joined string of the path components (i.e. the names of
   // each containing column from the schema tree root to this leaf)
   string FullSchemaPath() const;
@@ -91,6 +93,8 @@ class ParquetColumn {
   string ToString() const;
 
  private:
+  void FlushLevels(int fd, uint32_t num_elements, const uint8_t* levels_array);
+
   // Helper method to encode a vector of 8-bit integers into an output
   // buffer.  Used for repetition & definition level encoding.
   void EncodeLevels(const vector<uint8_t>& level_vector,
