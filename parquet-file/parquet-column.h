@@ -93,7 +93,12 @@ class ParquetColumn {
   string ToString() const;
 
  private:
+  // Helper methods to actually write R&D levels as well as actual
+  // data.  They technically could be const but writing out to a file
+  // is a side-effect, so I have not marked them as such to avoid
+  // indicating that they are side-effect free.
   void FlushLevels(int fd, const vector<uint8_t>& levels_array);
+  void FlushData(int fd);
 
   // Helper method to encode a vector of 8-bit integers into an output
   // buffer.  Used for repetition & definition level encoding.
@@ -142,12 +147,12 @@ class ParquetColumn {
   unsigned char* data_ptr_;
   // Repetition level array. Run-length encoded before being written.
   vector<uint8_t> repetition_levels_;
-  // Integer representing max repetition level in the schema tree.
+  // Integer representing max repetition level for this column.
   uint16_t max_repetition_level_;
-  // Integer representing max definition level.
-  uint16_t max_definition_level_;
   // Definition level array.  Also RLE before being written.
   vector<uint8_t> definition_levels_;
+  // Integer representing max definition level.
+  uint16_t max_definition_level_;
   // The offset into the file where column data is written.
   off_t column_write_offset_;
 };

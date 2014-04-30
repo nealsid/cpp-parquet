@@ -99,7 +99,7 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
     "For adding repeated data in this column, use AddRepeatedData";
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_ptr_, buf, n * bytes_per_datum_);
+  memcpy(data_ptr_, buf, num_bytes);
   data_ptr_ += num_bytes;
   num_records_ += n;
   num_datums_ += n;
@@ -297,6 +297,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     FlushLevels(fd, encoded_definition_levels);
   }
 
+  FlushData(fd);
+  VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
+}
+
+void ParquetColumn::FlushData(int fd) {
   for (int i = 0; i < NumDatums(); ++i) {
     LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
         << "Exceeded data added to internal buffer";
@@ -307,7 +312,6 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
                  << i;
     }
   }
-  VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
 
 void ParquetColumn::FlushLevels(int fd, const vector<uint8_t>& levels_array) {
