@@ -1,6 +1,6 @@
 // Copyright 2014 Mount Sinai School of Medicine
 
-#include "./parquet_types.h"
+#include "parquet_types/parquet_type.h"
 #include <thrift/protocol/TCompactProtocol.h>
 #include <glog/logging.h>
 #include <boost/shared_ptr.hpp>
@@ -23,7 +23,6 @@ using std::to_string;
 using std::vector;
 
 namespace parquet_file {
-const int kDataBufferSize = 1024000;
 
 // ParquetColumn represents a Parquet Column of data.  ParquetColumn
 // can contain children, which is how an, for example, Apache Avro
@@ -83,7 +82,6 @@ class ParquetColumn {
   uint32_t NumRecords() const;
   uint32_t NumDatums() const;
 
-
   // Flush this column via the protocol provided.
   void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);
 
@@ -133,18 +131,8 @@ class ParquetColumn {
   // how many records are in this column?  This includes
   // NULLs.  Repeated fields are counted as 1 record.
   uint32_t num_records_;
-  // How many pieces of data are in this column.  For this field, repeated
-  // data is not counted as one record.  So if you had an array field, and
-  // an individual record contained [1,2,3,4,5],  num_datums_ would 5, and
-  // num_records_ would be 1.
-  uint32_t num_datums_;
-  // The number of bytes each instance of the datatype stored in this
-  // column takes.
-  uint8_t bytes_per_datum_;
-  // Data buffer
-  unsigned char data_buffer_[kDataBufferSize];
-  // Current data pointer;
-  unsigned char* data_ptr_;
+  //
+  shared_ptr<ParquetDataBuffer> data_buffer_;
   // Repetition level array. Run-length encoded before being written.
   vector<uint8_t> repetition_levels_;
   // Integer representing max repetition level for this column.

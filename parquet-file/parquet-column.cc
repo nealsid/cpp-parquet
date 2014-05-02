@@ -1,6 +1,7 @@
 // Copyright 2014 Mount Sinai School of Medicine.
 
 #include "./parquet-column.h"
+#include "./parquet-type.h"
 
 #include <boost/algorithm/string/join.hpp>
 #include <parquet-file/util/rle-encoding.h>
@@ -26,14 +27,12 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     encoding_(encoding),
     data_type_(data_type),
     num_records_(0),
-    num_datums_(0),
     compression_codec_(compression_codec),
     // I'm purposely using the constructor parameter in the next line,
     // as opposed to data_type_, in order to be clear that I'm am
     // avoiding a dependency on the order of variable declarations in
     // the class.
-    bytes_per_datum_(BytesForDataType(data_type)),
-    data_ptr_(data_buffer_),
+    data_buffer_(new ParquetDataBuffer(data_type)),
     column_write_offset_(-1L) {
 }
 
@@ -43,7 +42,7 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     repetition_type_(repetition_type),
     num_records_(0),
     num_datums_(0),
-    data_ptr_(data_buffer_),
+    data_buffer_(NULL),
     column_write_offset_(-1L) {
 }
 
@@ -94,7 +93,7 @@ string ParquetColumn::ToString() const {
 }
 
 void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
-                            uint32_t n) {
+                               uint32_t n) {
   CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
   // TODO: check for overflow of multiply
@@ -102,7 +101,6 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
   memcpy(data_ptr_, buf, num_bytes);
   data_ptr_ += num_bytes;
   num_records_ += n;
-  num_datums_ += n;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(repetition_level);
     definition_levels_.push_back(max_definition_level_);
@@ -241,7 +239,6 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     << "Encoding can only be plain at this time.";
   LOG_IF(FATAL, CompressionCodec() != CompressionCodec::UNCOMPRESSED)
     << "Compression is not supported at this time.";
-
   LOG_IF(FATAL, Children().size() != 0)  <<
       "Flush called on container column";
 
