@@ -1,7 +1,7 @@
 // Copyright 2014 Mount Sinai School of Medicine.
 
 #include "./parquet-column.h"
-#include "./parquet-type.h"
+#include "./parquet-types/parquet-type.h"
 
 #include <boost/algorithm/string/join.hpp>
 #include <parquet-file/util/rle-encoding.h>
@@ -41,7 +41,6 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
   : column_name_(column_name),
     repetition_type_(repetition_type),
     num_records_(0),
-    num_datums_(0),
     data_buffer_(NULL),
     column_write_offset_(-1L) {
 }
@@ -88,8 +87,7 @@ string ParquetColumn::ToString() const {
     + "/" + to_string(Children().size()) + " children"
     + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->Type())
     + "/" + to_string(num_records_) + " records"
-    + "/" + to_string(num_datums_) + " pieces of data"
-    + "/" + to_string(bytes_per_datum_) + " bytes per datum";
+      + "/" + to_string(data_buffer_->NumValues()) + " pieces of data";
 }
 
 void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
@@ -97,9 +95,7 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
   CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
   // TODO: check for overflow of multiply
-  size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_ptr_, buf, num_bytes);
-  data_ptr_ += num_bytes;
+  data_buffer_->AddNValues(buf, n);
   num_records_ += n;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(repetition_level);
@@ -114,9 +110,7 @@ void ParquetColumn::AddRepeatedData(void *buf,
                                     uint32_t n) {
   LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REPEATED) <<
     "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
-  size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_ptr_, buf, n * bytes_per_datum_);
-  data_ptr_ += num_bytes;
+  data_buffer_->AddNValues(buf, n);
   repetition_levels_.push_back(current_repetition_level);
   definition_levels_.push_back(max_definition_level_);
   for (int i = 1; i < n; ++i) {
@@ -124,7 +118,6 @@ void ParquetColumn::AddRepeatedData(void *buf,
     definition_levels_.push_back(max_definition_level_);
   }
   num_records_ += 1;
-  num_datums_ += n;
 }
 
 void ParquetColumn::AddNulls(uint16_t current_repetition_level,
@@ -141,10 +134,6 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
 
 uint32_t ParquetColumn::NumRecords() const {
   return num_records_;
-}
-
-uint32_t ParquetColumn::NumDatums() const {
-  return num_datums_;
 }
 
 // static
@@ -244,9 +233,12 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
   VLOG(2) << "Inside flush for " << FullSchemaPath();
-  VLOG(2) << "\tData size: "
-          << (Children().size() == 0 ? BytesForDataType(data_type_) : 0) * num_datums_
-          << " bytes.";
+
+  uint64_t data_size = 0L;
+  if (Children().size() == 0) {
+    data_size = BytesForDataType(data_type_) * data_buffer_->NumValues();
+  }
+  VLOG(2) << "\tData size: " << to_string(data_size) << " bytes.";
   VLOG(2) << "\tNumber of records: " << NumRecords();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
   vector<uint8_t> encoded_repetition_levels, encoded_definition_levels;
@@ -259,7 +251,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   PageHeader page_header;
   page_header.__set_type(PageType::DATA_PAGE);
 
-  uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
+  uncompressed_bytes_ = BytesForDataType(data_type_) * data_buffer_->NumValues()
                         + repetition_level_size + definition_level_size;
   // We add 8 to this for the two ints at that indicate the length of
   // the rep & def levels.
@@ -299,12 +291,13 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 }
 
 void ParquetColumn::FlushData(int fd) {
-  for (int i = 0; i < NumDatums(); ++i) {
-    LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
-        << "Exceeded data added to internal buffer";
-    ssize_t written = write(fd, data_buffer_ + i * bytes_per_datum_,
-                            bytes_per_datum_);
-    if (written != bytes_per_datum_) {
+  for (int i = 0; i < data_buffer_->NumValues(); ++i) {
+    // LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
+    //     << "Exceeded data added to internal buffer";
+    // ssize_t written = write(fd, data_buffer_ + i * bytes_per_datum_,
+    //                         bytes_per_datum_);
+    ssize_t written = 0;
+    if (written != BytesForDataType(data_type_)) {
       LOG(FATAL) << "Did not write correct number of bytes for element %d\n"
                  << i;
     }

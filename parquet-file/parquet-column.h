@@ -1,6 +1,6 @@
 // Copyright 2014 Mount Sinai School of Medicine
 
-#include "parquet_types/parquet_type.h"
+#include "parquet-types/parquet-type.h"
 #include <thrift/protocol/TCompactProtocol.h>
 #include <glog/logging.h>
 #include <boost/shared_ptr.hpp>
@@ -80,7 +80,6 @@ class ParquetColumn {
                 uint32_t n);
 
   uint32_t NumRecords() const;
-  uint32_t NumDatums() const;
 
   // Flush this column via the protocol provided.
   void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);

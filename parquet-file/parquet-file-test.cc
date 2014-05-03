@@ -82,31 +82,31 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
 }
 
 // Tests that the output works with one column of 96 byte ints.
-TEST_F(ParquetFileTest, OneColumn96ByteInts) {
-  ParquetFile output(output_filename_);
+// TEST_F(ParquetFileTest, OneColumn96ByteInts) {
+//   ParquetFile output(output_filename_);
 
-  ParquetColumn* one_column =
-      new ParquetColumn({"AllInts"}, parquet::Type::INT96,
-                        1, 1,
-                        FieldRepetitionType::REQUIRED,
-                        Encoding::PLAIN,
-                        CompressionCodec::UNCOMPRESSED);
+//   ParquetColumn* one_column =
+//       new ParquetColumn({"AllInts"}, parquet::Type::INT96,
+//                         1, 1,
+//                         FieldRepetitionType::REQUIRED,
+//                         Encoding::PLAIN,
+//                         CompressionCodec::UNCOMPRESSED);
 
-  ParquetColumn* root_column =
-      new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
-  root_column->SetChildren({one_column});
-  output.SetSchema(root_column);
-  uint8_t data[12];
-  for (int i = 0; i < 500; ++i) {
-    data = i;
-    one_column->AddRecords(data, 0, 500);
-  }
-  for (int i = 0; i < 500; ++i) {
-    data[i] = i;
-  }
-  two_column->AddRecords(data, 0, 500);
-  output.Flush();
-}
+//   ParquetColumn* root_column =
+//       new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
+//   root_column->SetChildren({one_column});
+//   output.SetSchema(root_column);
+//   uint8_t data[12];
+//   for (int i = 0; i < 500; ++i) {
+//     data = i;
+//     one_column->AddRecords(data, 0, 500);
+//   }
+//   for (int i = 0; i < 500; ++i) {
+//     data[i] = i;
+//   }
+//   two_column->AddRecords(data, 0, 500);
+//   output.Flush();
+// }
 
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers

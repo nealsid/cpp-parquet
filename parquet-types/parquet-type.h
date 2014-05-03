@@ -6,9 +6,10 @@
 // returning a value in little endian form suitable for writing to
 // disk.
 
-#ifndef PARQUET_TYPES_PARQUET_TYPE_H
-#define PARQUET_TYPES_PARQUET_TYPE_H
+#include "./parquet_types.h"
 
+#ifndef PARQUET_TYPES_PARQUET_TYPE_H_
+#define PARQUET_TYPES_PARQUET_TYPE_H_
 
 using parquet::Type;
 
@@ -16,13 +17,13 @@ namespace parquet_file {
 const int kDataBufferSize = 1024000;
 
 class ParquetDataBuffer {
-public:
-  ParquetType(parquet::Type::type data_type) {
-
+ public:
+  explicit ParquetDataBuffer(parquet::Type::type data_type) {
+    this->data_type_ = data_type;
   }
   // Return the number of bytes that each piece of data of this type
   // takes up.
-  static uint8_t BytesPerDatum(Type::type dataType) const {
+  static uint8_t BytesPerDatum(Type::type dataType) {
     // TODO support boolean (which is 1 bit)
     switch (dataType) {
       case Type::INT32:
@@ -46,19 +47,23 @@ public:
   }
 
   void AddNValues(void* buf, int n) {
-    memcpy(data_buffer_, buf, n * BytesPerDatum());
+    memcpy(data_buffer_, buf, n * BytesPerDatum(data_type_));
     num_values_ += n;
   }
+  uint32_t NumValues() const { return num_values_; }
   void FetchValueLittleEndian(void *buf);
-private:
+
+ private:
+  // The parquet type of data for this data buffer.
+  parquet::Type::type data_type_;
   // How many pieces of data are in this column.
-  int num_values_;
+  uint32_t num_values_;
   // Current data pointer;
   unsigned char* data_ptr_;
   // Data buffer
   unsigned char data_buffer_[kDataBufferSize];
 };
-} // namespace parquet_file
+}  // namespace parquet_file
 
 
-#endif  // PARQUET_TYPES_PARQUET_TYPE_H
+#endif  // PARQUET_TYPES_PARQUET_TYPE_H_
