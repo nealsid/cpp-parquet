@@ -4,7 +4,7 @@
 ADD_LIBRARY(libcppparquet parquet-file.cc parquet-column.cc)
 
 ADD_CUSTOM_COMMAND(
-   OUTPUT ${SOURCE_DIR}/src/getst-all.cc
+   OUTPUT ${SOURCE_DIR}/src/gtest-all.cc
    COMMAND "touch ${SOURCE_DIR}/src/gtest-all.cc"
 )
 

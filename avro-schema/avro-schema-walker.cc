@@ -56,7 +56,7 @@ AvroSchemaToParquetSchemaConverter::AvroSchemaToParquetSchemaConverter() :
   root_(nullptr) {
 }
 
-void* AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node, 
+void* AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
 						 const vector<string>& names,
 						 int level,
 						 void* parent_data) {
@@ -76,7 +76,7 @@ void* AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
   // path of any fields further down in the schema tree.
   ParquetColumn* column = nullptr;
   if (level == 0 && parent_data == nullptr && names.size() == 0) {
-    LOG_IF(FATAL, node->type() != avro::AVRO_RECORD) 
+    LOG_IF(FATAL, node->type() != avro::AVRO_RECORD)
       << "Root node was not AVRO_RECORD";
     vector<string> outer_message_name = {node->name().fullname()};
     column = AvroNodePtrToParquetColumn(node, outer_message_name, level);
@@ -114,13 +114,13 @@ AvroSchemaToParquetSchemaConverter::AvroNodePtrToParquetColumn(const NodePtr& no
     CHECK(node->leafAt(0)->names() == 0);
     CHECK(node->leafAt(0)->type() == avro::AVRO_INT);
     c = new ParquetColumn(names, parquet::Type::INT32,
-			  1,
+        1, 1,
 			  FieldRepetitionType::REPEATED,
 			  Encoding::PLAIN,
 			  CompressionCodec::UNCOMPRESSED);
   } else {
     c = new ParquetColumn(names, parquet::Type::INT32,
-			  1,
+        1, 1,
 			  FieldRepetitionType::REQUIRED,
 			  Encoding::PLAIN,
 			  CompressionCodec::UNCOMPRESSED);

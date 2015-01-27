@@ -2,6 +2,7 @@
 
 #include "./parquet-column.h"
 
+#include <algorithm>
 #include <boost/algorithm/string/join.hpp>
 #include <parquet-file/util/rle-encoding.h>
 #include <thrift/protocol/TCompactProtocol.h>
@@ -189,14 +190,18 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
                                  vector<uint8_t>* output_vector,
                                  uint16_t max_level) {
   CHECK_NOTNULL(output_vector);
+  // The std::Max call is to work around an incorrect calculation in
+  // the RLE encoder for checking when the buffer is full, if the bit
+  // width is 1 bit.
   int max_buffer_size =
-      impala::RleEncoder::MaxBufferSize(level_vector.size(), max_level);
+      impala::RleEncoder::MaxBufferSize(level_vector.size(),
+                                        max_level);
   shared_ptr<uint8_t> output_buffer(new uint8_t[max_buffer_size]);
   impala::RleEncoder encoder(output_buffer.get(), max_buffer_size, max_level);
   VLOG(2) << "\tLevels size: " << level_vector.size();
   for (uint8_t level : level_vector) {
     VLOG(3) << "\t\t" << to_string(level);
-    encoder.Put(level);
+    CHECK(encoder.Put(level));
   }
   encoder.Flush();
   uint32_t num_bytes = encoder.len();
@@ -204,9 +209,23 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
           << " bytes encoded";
   output_vector->assign(output_buffer.get(), output_buffer.get() + num_bytes);
   VLOG(2) << "\tOutput vector size: " << output_vector->size();
-  VLOG(2) << "\tLevel bitstream (first 2 bytes only): "
-          << std::bitset<8>(output_vector->at(0))
-          << " " << std::bitset<8>(output_vector->at(1));
+  if (VLOG_IS_ON(2)) {
+    int bytes_to_log = 6;
+    VLOG(2) << "\tLevel bitstream (first "
+            << bytes_to_log << " bytes only): ";
+    for (int i = 0; i < num_bytes; ++i) {
+      VLOG(2) << "\t" << std::bitset<8>(output_buffer.get()[i]);
+    }
+  }
+
+  if (VLOG_IS_ON(2)) {
+    int bytes_to_log = 6;
+    VLOG(2) << "\tLevel bitstream (first "
+            << bytes_to_log << " bytes only): ";
+    for (int i = 0; i < output_vector->size() && i < bytes_to_log; ++i) {
+      VLOG(2) << "\t" << std::bitset<8>(output_vector->at(i));
+    }
+  }
 }
 
 void ParquetColumn::EncodeRepetitionLevels(

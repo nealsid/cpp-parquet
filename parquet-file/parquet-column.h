@@ -34,9 +34,9 @@ class ParquetColumn {
   // from the root of the schema to the current node.  Type is the
   // Parquet data type, repetition_type is the repetition type for the
   // column (repeated, required, etc), and encoding & compression are
-  // as they are in Parquet.  column__level represents the level of
-  // this column in the schema tree (it's used for setting the
-  // repetition & definition levels)
+  // as they are in Parquet.  max_{repetition, definition}_level
+  // represents the max level of this column in the schema tree (it's
+  // used for setting the repetition & definition levels)
   ParquetColumn(const vector<string>& column_name,
                 parquet::Type::type data_type,
                 uint16_t max_repetition_level,

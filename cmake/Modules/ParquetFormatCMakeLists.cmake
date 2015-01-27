@@ -7,6 +7,7 @@ ExternalProject_Add(parquet-format
    BUILD_COMMAND touch /tmp/foo
    INSTALL_COMMAND touch /tmp/foo
    INSTALL_DIR ${CMAKE_BINARY_DIR}/third_party/parquet-format
+   UPDATE_COMMAND ""
 )
 # According to docs, ExternalProject_Get_Property will retrieve a
 # property from the external project defined above, but it always sets
@@ -27,6 +28,5 @@ ExternalProject_Get_Property(parquet-format source_dir)
 ADD_CUSTOM_COMMAND(OUTPUT
     ${CMAKE_BINARY_DIR}/third_party/parquet-format/parquet_constants.cpp ${CMAKE_BINARY_DIR}/third_party/parquet-format/parquet_constants.h ${CMAKE_BINARY_DIR}/third_party/parquet-format/parquet_types.cpp ${CMAKE_BINARY_DIR}/third_party/parquet-format/parquet_types.h
     COMMAND mkdir -p ${CMAKE_BINARY_DIR}/third_party/parquet-format
-    COMMAND thrift -gen cpp -out ${CMAKE_BINARY_DIR}/third_party/parquet-format ${source_dir}/src/thrift/parquet.thrift 
+    COMMAND thrift -gen cpp -out ${CMAKE_BINARY_DIR}/third_party/parquet-format ${source_dir}/src/thrift/parquet.thrift
     DEPENDS ${source_dir}/src/thrift/parquet.thrift)
-

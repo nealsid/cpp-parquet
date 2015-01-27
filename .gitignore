@@ -1,3 +1,16 @@
 build*
 *~
 cpplint.py
+third_party/*
+lib*a
+
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
+install_manifest.txt
+test.parquet
+
+avro-schema-walker-example
+cppparquet
+parquet-file-test

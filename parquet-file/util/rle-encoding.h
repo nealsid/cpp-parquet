@@ -1,3 +1,5 @@
+
+
 // Copyright 2012 Cloudera Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -121,6 +123,7 @@ class RleEncoder {
     DCHECK_GE(bit_width_, 1);
     DCHECK_LE(bit_width_, 64);
     max_run_byte_size_ = MinBufferSize(max_value);
+    VLOG(2) << "max_run_byte_size_: " << max_run_byte_size_;
     DCHECK_GE(buffer_len, max_run_byte_size_) << "Input buffer not big enough.";
     Clear();
   }
@@ -144,7 +147,9 @@ class RleEncoder {
     int bytes_per_run = Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
     int num_runs = Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
     int literal_max_size = num_runs + num_runs * bytes_per_run;
-    return std::max(MinBufferSize(max_value), literal_max_size);
+    printf("maxbufsize: %d %d %d %d %d\n", MAX_VALUES_PER_LITERAL_RUN, bit_width, bytes_per_run, num_runs, literal_max_size);
+    int min_run_size = MinBufferSize(bit_width);
+    return std::max(min_run_size, literal_max_size) + min_run_size;
   }
 
   // Encode value.  Returns true if the value fits in buffer, false otherwise.
@@ -397,6 +402,9 @@ inline int RleEncoder::Flush() {
 
 inline void RleEncoder::CheckBufferFull() {
   int bytes_written = bit_writer_.bytes_written();
+  VLOG(2) << "bytes_written: " << bytes_written;
+  VLOG(2) << "max_run_byte_size_: " << max_run_byte_size_;
+  VLOG(2) << "bit_writer_buffer_len: " << bit_writer_.buffer_len();
   if (bytes_written + max_run_byte_size_ > bit_writer_.buffer_len()) {
     buffer_full_ = true;
   }
