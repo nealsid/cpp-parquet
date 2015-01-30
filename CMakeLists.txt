@@ -1,7 +1,7 @@
 #
 # Build CMakeFile for cpp-parquet
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0.2)
 PROJECT(cpp-parquet-proj)
 
 # Set to use C++11
@@ -15,6 +15,7 @@ INCLUDE(ParquetFormatCMakeLists)
 INCLUDE(GoogleGlogCMakeLists)
 INCLUDE(GoogleTestCMakeLists)
 # INCLUDE(SnappyCMakeLists)
+INCLUDE(CheckIncludeFileCXX)
 
 FIND_PACKAGE(Thrift REQUIRED)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
