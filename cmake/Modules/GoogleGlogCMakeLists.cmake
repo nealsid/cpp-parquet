@@ -15,5 +15,5 @@ ExternalProject_Get_Property(google-glog install_dir)
 INCLUDE_DIRECTORIES (${install_dir}/include)
 
 ADD_LIBRARY(glog STATIC IMPORTED)
-SET_PROPERTY(TARGET glog PROPERTY IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/third_party/google-glog/lib/libglog.a)
+SET_PROPERTY(TARGET glog PROPERTY IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/third_party/google-glog/lib64/libglog.a)
 ADD_DEPENDENCIES(glog google-glog)

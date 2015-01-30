@@ -55,10 +55,10 @@ class ParquetColumn {
   const vector<ParquetColumn*>& Children() const;
 
   // Accessors for the reptition type, encoding, type, and name.
-  FieldRepetitionType::type RepetitionType() const;
-  Encoding::type Encoding() const;
-  Type::type Type() const;
-  CompressionCodec::type CompressionCodec() const;
+  FieldRepetitionType::type getFieldRepetitionType() const;
+  Encoding::type getEncoding() const;
+  Type::type getType() const;
+  CompressionCodec::type getCompressionCodec() const;
   string Name() const;
 
   // A '.'-joined string of the path components (i.e. the names of

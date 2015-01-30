@@ -14,4 +14,8 @@ INCLUDE_DIRECTORIES(${SOURCE_DIR} ${SOURCE_DIR}/include)
 ADD_EXECUTABLE(parquet-file-test parquet-file-test.cc ${SOURCE_DIR}/src/gtest-all.cc)
 ADD_DEPENDENCIES(parquet-file-test libcppparquet googletest)
 set_property(TARGET parquet-file-test PROPERTY DEPENDS googletest)
+set_property(TARGET parquet-file-test PROPERTY COMPILE_FLAGS
+"-DGTEST_USE_OWN_TR1_TUPLE=0")
+set_property(TARGET parquet-file-test PROPERTY LINK_FLAGS
+"-lpthread")
 TARGET_LINK_LIBRARIES(parquet-file-test libcppparquet glog thrift parquet-thrift)

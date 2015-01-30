@@ -166,13 +166,13 @@ ParquetColumnWalker::ParquetColumnWalker(vector<SchemaElement>* dfsVector)
 void ParquetColumnWalker::ColumnCallback(ParquetColumn* column) {
   SchemaElement schemaElement;
   schemaElement.__set_name(column->Name());
-  schemaElement.__set_repetition_type(column->RepetitionType());
+  schemaElement.__set_repetition_type(column->getFieldRepetitionType());
   // Parquet requires that we don't set the number of children if
   // the schema element is for a data column.
   if (column->Children().size() > 0) {
     schemaElement.__set_num_children(column->Children().size());
   } else {
-    schemaElement.__set_type(column->Type());
+    schemaElement.__set_type(column->getType());
   }
   dfsVector_->push_back(schemaElement);
 }

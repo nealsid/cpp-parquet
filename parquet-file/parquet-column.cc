@@ -3,6 +3,7 @@
 #include "./parquet-column.h"
 
 #include <algorithm>
+#include <bitset>
 #include <boost/algorithm/string/join.hpp>
 #include <parquet-file/util/rle-encoding.h>
 #include <thrift/protocol/TCompactProtocol.h>
@@ -52,19 +53,19 @@ const vector<ParquetColumn*>& ParquetColumn::Children() const {
   return children_;
 }
 
-FieldRepetitionType::type ParquetColumn::RepetitionType() const {
+FieldRepetitionType::type ParquetColumn::getFieldRepetitionType() const {
   return repetition_type_;
 }
 
-Encoding::type ParquetColumn::Encoding() const {
+Encoding::type ParquetColumn::getEncoding() const {
   return encoding_;
 }
 
-Type::type ParquetColumn::Type() const {
+Type::type ParquetColumn::getType() const {
   return data_type_;
 }
 
-CompressionCodec::type ParquetColumn::CompressionCodec() const {
+CompressionCodec::type ParquetColumn::getCompressionCodec() const {
   return compression_codec_;
 }
 
@@ -86,9 +87,9 @@ string ParquetColumn::Name() const {
 
 string ParquetColumn::ToString() const {
   return this->FullSchemaPath() + "/" +
-    parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->RepetitionType())
+    parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->getFieldRepetitionType())
     + "/" + to_string(Children().size()) + " children"
-    + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->Type())
+    + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->getType())
     + "/" + to_string(num_records_) + " records"
     + "/" + to_string(num_datums_) + " pieces of data"
     + "/" + to_string(bytes_per_datum_) + " bytes per datum";
@@ -115,7 +116,7 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
 void ParquetColumn::AddRepeatedData(void *buf,
                                     uint16_t current_repetition_level,
                                     uint32_t n) {
-  LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::REPEATED) <<
+  LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::REPEATED) <<
     "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
@@ -133,7 +134,7 @@ void ParquetColumn::AddRepeatedData(void *buf,
 void ParquetColumn::AddNulls(uint16_t current_repetition_level,
                              uint16_t current_definition_level,
                              uint32_t n) {
-  LOG_IF(FATAL, RepetitionType() != FieldRepetitionType::OPTIONAL) <<
+  LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::OPTIONAL) <<
     "Cannot add NULL to non-optional column: " << FullSchemaPath();
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(current_repetition_level);
@@ -232,7 +233,7 @@ void ParquetColumn::EncodeRepetitionLevels(
     vector<uint8_t>* encoded_repetition_levels) {
   CHECK_NOTNULL(encoded_repetition_levels);
   encoded_repetition_levels->clear();
-  if (RepetitionType() == FieldRepetitionType::REPEATED) {
+  if (getFieldRepetitionType() == FieldRepetitionType::REPEATED) {
     VLOG(2) << "\tRepeated field, encoding repetition levels";
     EncodeLevels(repetition_levels_, encoded_repetition_levels,
                  max_repetition_level_);
@@ -245,8 +246,9 @@ void ParquetColumn::EncodeDefinitionLevels(
     vector<uint8_t>* encoded_definition_levels) {
   CHECK_NOTNULL(encoded_definition_levels);
   encoded_definition_levels->clear();
-  if (RepetitionType() == FieldRepetitionType::REPEATED ||
-      RepetitionType() == FieldRepetitionType::OPTIONAL) {
+  FieldRepetitionType::type repetition_type = getFieldRepetitionType();
+  if (repetition_type == FieldRepetitionType::REPEATED ||
+      repetition_type == FieldRepetitionType::OPTIONAL) {
     VLOG(2) << "\tNon-required/Non-optional field, encoding definition levels";
     EncodeLevels(definition_levels_, encoded_definition_levels,
                  max_definition_level_);
@@ -256,9 +258,9 @@ void ParquetColumn::EncodeDefinitionLevels(
 }
 
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
-  LOG_IF(FATAL, Encoding() != Encoding::PLAIN)
+  LOG_IF(FATAL, getEncoding() != Encoding::PLAIN)
     << "Encoding can only be plain at this time.";
-  LOG_IF(FATAL, CompressionCodec() != CompressionCodec::UNCOMPRESSED)
+  LOG_IF(FATAL, getCompressionCodec() != CompressionCodec::UNCOMPRESSED)
     << "Compression is not supported at this time.";
 
   LOG_IF(FATAL, Children().size() != 0)  <<
@@ -349,9 +351,9 @@ void ParquetColumn::FlushLevels(int fd, const vector<uint8_t>& levels_array) {
 
 ColumnMetaData ParquetColumn::ParquetColumnMetaData() const {
   ColumnMetaData column_metadata;
-  column_metadata.__set_type(Type());
-  column_metadata.__set_encodings({Encoding()});
-  column_metadata.__set_codec(CompressionCodec());
+  column_metadata.__set_type(getType());
+  column_metadata.__set_encodings({getEncoding()});
+  column_metadata.__set_codec(getCompressionCodec());
   column_metadata.__set_num_values(definition_levels_.size());
   column_metadata.__set_total_uncompressed_size(uncompressed_bytes_);
   column_metadata.__set_total_compressed_size(uncompressed_bytes_);
