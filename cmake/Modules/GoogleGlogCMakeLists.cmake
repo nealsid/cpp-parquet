@@ -14,6 +14,14 @@ ExternalProject_Add(google-glog
 ExternalProject_Get_Property(google-glog install_dir)
 INCLUDE_DIRECTORIES (${install_dir}/include)
 
+# from www.cmake.org/pipermail/cmake/2011-June/045092.html
+get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
+if (${LIB64} STREQUAL "TRUE")
+  set(LIBSUFFIX 64)
+else()
+  set(LIBSUFFIX "")
+endif()
+
 ADD_LIBRARY(glog STATIC IMPORTED)
-SET_PROPERTY(TARGET glog PROPERTY IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/third_party/google-glog/lib64/libglog.a)
+SET_PROPERTY(TARGET glog PROPERTY IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/third_party/google-glog/lib${LIBSUFFIX}/libglog.a)
 ADD_DEPENDENCIES(glog google-glog)
