@@ -96,12 +96,12 @@ string ParquetColumn::ToString() const {
 }
 
 void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
-                            uint32_t n) {
+                               uint32_t n) {
   CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_ptr_, buf, n * bytes_per_datum_);
+  memcpy(data_ptr_, buf, num_bytes);
   data_ptr_ += num_bytes;
   num_records_ += n;
   num_datums_ += n;
@@ -191,9 +191,6 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
                                  vector<uint8_t>* output_vector,
                                  uint16_t max_level) {
   CHECK_NOTNULL(output_vector);
-  // The std::Max call is to work around an incorrect calculation in
-  // the RLE encoder for checking when the buffer is full, if the bit
-  // width is 1 bit.
   int max_buffer_size =
       impala::RleEncoder::MaxBufferSize(level_vector.size(),
                                         max_level);

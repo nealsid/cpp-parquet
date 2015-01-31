@@ -1,9 +1,11 @@
 // Copyright 2014 Mount Sinai School of Medicine
 
+#include <parquet-file/parquet-file.h>
+
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include <parquet-file/parquet-file.h>
 #include <parquet-file/parquet-column.h>
+#include <stdint.h>
 #include <unistd.h>
 
 using parquet_file::ParquetColumn;
@@ -78,6 +80,44 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
     data[i] = i;
   }
   two_column->AddRecords(data, 0, 500);
+  output.Flush();
+}
+
+// Tests that the output works with two columns of required 64-bit
+// integers.
+TEST_F(ParquetFileTest, TwoColumnRequiredInt64) {
+  ParquetFile output(output_filename_);
+
+  int64_t data_val = INT64_MAX;
+  LOG(INFO) << "Assigning sentinal val: " << data_val;
+  int num_values = 500;
+  ParquetColumn* one_column =
+    new ParquetColumn({"AllInt64s"}, parquet::Type::INT64,
+                      1, 1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* two_column =
+    new ParquetColumn({"AllInts64s1"}, parquet::Type::INT64,
+                      1, 1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
+  root_column->SetChildren({one_column, two_column});
+  output.SetSchema(root_column);
+  int64_t data[num_values];
+  for (int i = 0; i < num_values; ++i) {
+    data[i] = data_val;
+  }
+  one_column->AddRecords(data, 0, num_values);
+  for (int i = 0; i < num_values; ++i) {
+    data[i] = data_val;
+  }
+  two_column->AddRecords(data, 0, num_values);
   output.Flush();
 }
 
