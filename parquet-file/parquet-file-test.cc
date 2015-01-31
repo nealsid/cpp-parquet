@@ -13,39 +13,40 @@ using parquet_file::ParquetFile;
 
 namespace {
 
-// The fixture for testing class Foo.
+// The fixture for testing class ParquetFile.
 class ParquetFileTest : public ::testing::Test {
  protected:
-  // You can remove any or all of the following functions if its body
-  // is empty.
-
   ParquetFileTest() {
-    // You can do set-up work for each test here.
     snprintf(template_, sizeof(template_), "/tmp/parquetFileTmp.XXXXXX");
+    char* parquet_dump_path = getenv("PARQUET_DUMP_PATH");
+    if (parquet_dump_path) {
+      parquet_dump_executable_path_.assign(parquet_dump_path);
+      VLOG(2) << "Using " << parquet_dump_executable_path_ << " to validate files";
+    }
   }
-
-  virtual ~ParquetFileTest() {
-    // You can do clean-up work that doesn't throw exceptions here.
-  }
-
-  // If the constructor and destructor are not enough for setting up
-  // and cleaning up each test, you can define the following methods:
 
   virtual void SetUp() {
-    // Code here will be called immediately after the constructor (right
-    // before each test).
     output_filename_.assign(mktemp(template_));
     LOG(INFO) << "Assigning filename: " << output_filename_;
   }
 
   virtual void TearDown() {
-    // Code here will be called immediately after each test (right
-    // before the destructor).
+    if (!parquet_dump_executable_path_.empty()) {
+      const ::testing::TestInfo* const test_info =
+          ::testing::UnitTest::GetInstance()->current_test_info();
+      char golden_filename[1024];
+      snprintf(golden_filename, 1024, "%s-golden", test_info->name());
+      char command_line[1024];
+      snprintf(command_line, 1024, "%s %s > %s", parquet_dump_executable_path_.c_str(), output_filename_.c_str(), golden_filename);
+      system(command_line);
+    }
+
   }
 
   // Objects declared here can be used by all tests in the test case for Foo.
   string output_filename_;
   char template_[32];
+  string parquet_dump_executable_path_;
 };
 
 
