@@ -14,9 +14,12 @@ ExternalProject_Add(google-glog
 ExternalProject_Get_Property(google-glog install_dir)
 INCLUDE_DIRECTORIES (${install_dir}/include)
 
-# from www.cmake.org/pipermail/cmake/2011-June/045092.html
+# from www.cmake.org/pipermail/cmake/2011-June/045092.html For some
+# reason, FIND_LIBRARY_USE_LIB64_PATHS is true on OS X, even though 64
+# bit builds don't install into lib64 by default (maybe this is
+# specific to Google Test)
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
-if (${LIB64} STREQUAL "TRUE")
+if (${LIB64} STREQUAL "TRUE" AND NOT APPLE)
   set(LIBSUFFIX 64)
 else()
   set(LIBSUFFIX "")
