@@ -2,8 +2,10 @@
 
 #include <parquet-file/parquet-file.h>
 
+#include <algorithm>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <limits.h>
 #include <parquet-file/parquet-column.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -36,8 +38,10 @@ class ParquetFileTest : public ::testing::Test {
           ::testing::UnitTest::GetInstance()->current_test_info();
       char golden_filename[1024];
       snprintf(golden_filename, 1024, "%s-golden", test_info->name());
+      string golden_filename_no_slashes(golden_filename);
+      std::replace(golden_filename_no_slashes.begin(), golden_filename_no_slashes.end(), '/','-');
       char command_line[1024];
-      snprintf(command_line, 1024, "%s %s > %s", parquet_dump_executable_path_.c_str(), output_filename_.c_str(), golden_filename);
+      snprintf(command_line, 1024, "%s %s > %s", parquet_dump_executable_path_.c_str(), output_filename_.c_str(), golden_filename_no_slashes.c_str());
       system(command_line);
     }
 
@@ -49,20 +53,41 @@ class ParquetFileTest : public ::testing::Test {
   string parquet_dump_executable_path_;
 };
 
+class ParquetFileBasicRequiredTest : public ParquetFileTest, public ::testing::WithParamInterface<parquet::Type::type> {
+ protected:
+  uint8_t* SentinelValueForType() {
+    uint8_t* val_ptr = new uint8_t[ParquetColumn::BytesForDataType(GetParam())];
+    switch(GetParam()) {
+      case parquet::Type::INT32:
+        *(int32_t*)val_ptr = INT_MAX;
+        break;
+      case parquet::Type::INT64:
+        *(int64_t*)val_ptr = INT64_MAX;
+        break;
+      case parquet::Type::DOUBLE:
+        *(double*)val_ptr = std::numeric_limits<double>::max();
+        break;
+      default:
+        LOG(FATAL) << "Invalid type specified in SentinelValueForType()" << GetParam();
+    }
+    return val_ptr;
+  }
+};
 
 // Tests that the output works with two columns of required integers.
-TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
+TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
   ParquetFile output(output_filename_);
 
+  parquet::Type::type column_type = GetParam();
   ParquetColumn* one_column =
-    new ParquetColumn({"AllInts"}, parquet::Type::INT32,
+    new ParquetColumn({"AllInts"}, column_type,
                       1, 1,
                       FieldRepetitionType::REQUIRED,
                       Encoding::PLAIN,
                       CompressionCodec::UNCOMPRESSED);
 
   ParquetColumn* two_column =
-    new ParquetColumn({"AllInts1"}, parquet::Type::INT32,
+    new ParquetColumn({"AllInts1"}, column_type,
                       1, 1,
                       FieldRepetitionType::REQUIRED,
                       Encoding::PLAIN,
@@ -72,55 +97,19 @@ TEST_F(ParquetFileTest, TwoColumnRequiredInts) {
     new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
   root_column->SetChildren({one_column, two_column});
   output.SetSchema(root_column);
-  uint32_t data[500];
-  for (int i = 0; i < 500; ++i) {
-    data[i] = i;
-  }
-  one_column->AddRecords(data, 0, 500);
-  for (int i = 0; i < 500; ++i) {
-    data[i] = i;
-  }
-  two_column->AddRecords(data, 0, 500);
-  output.Flush();
-}
+  std::unique_ptr<uint8_t> data_value(SentinelValueForType());
 
-// Tests that the output works with two columns of required 64-bit
-// integers.
-TEST_F(ParquetFileTest, TwoColumnRequiredInt64) {
-  ParquetFile output(output_filename_);
-
-  int64_t data_val = INT64_MAX;
-  LOG(INFO) << "Assigning sentinal val: " << data_val;
   int num_values = 500;
-  ParquetColumn* one_column =
-    new ParquetColumn({"AllInt64s"}, parquet::Type::INT64,
-                      1, 1,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
-
-  ParquetColumn* two_column =
-    new ParquetColumn({"AllInts64s1"}, parquet::Type::INT64,
-                      1, 1,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED);
-
-  ParquetColumn* root_column =
-    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
-  root_column->SetChildren({one_column, two_column});
-  output.SetSchema(root_column);
-  int64_t data[num_values];
   for (int i = 0; i < num_values; ++i) {
-    data[i] = data_val;
+    one_column->AddRecords(data_value.get(), 0, 1);
+    two_column->AddRecords(data_value.get(), 0, 1);
   }
-  one_column->AddRecords(data, 0, num_values);
-  for (int i = 0; i < num_values; ++i) {
-    data[i] = data_val;
-  }
-  two_column->AddRecords(data, 0, num_values);
   output.Flush();
 }
+
+INSTANTIATE_TEST_CASE_P(InstantiationName,
+                        ParquetFileBasicRequiredTest,
+                        ::testing::Values(parquet::Type::INT32, parquet::Type::INT64, parquet::Type::DOUBLE));
 
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers
