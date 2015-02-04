@@ -1,6 +1,6 @@
 # cpp-parquet
 
-January 30th, 2015
+February 3rd, 2015
 
 You will need the following dependencies pre-installed:
 
@@ -53,4 +53,18 @@ To run unit tests with logging:
 $ GLOG_v=2 GLOG_alsologtostderr=true ./parquet-file/parquet-file-test
 ```
 
-Setting ``GLOG_v=3`` might produce useful output in some cases, but is pretty verbose (i.e. each individual rep/def level).
+If you have parquet-tools or parquet-mr installed (parquet-tools is a project that was merged into parquet, so your version of parquet-mr has to be somewhat recent), you can also run it like this:
+
+```sh
+$ PARQUET_DUMP_PATH=<path to parquet-dump executable> GLOG_alsologtostderr=true ./parquet-file-test
+```
+
+Which will generate 'golden files' in the current directory. Currently
+these files aren't used for anything, but they can be useful to view
+the output of parquet-dump on the temp files the test cases create.
+In the future, they will be part of the repo and will be used to
+validate each test case run by comparing each test case run with the
+golden file.
+
+Setting ``GLOG_v=3`` might produce useful output in some cases, but is
+pretty verbose (i.e. each individual rep/def level).

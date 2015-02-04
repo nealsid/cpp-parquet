@@ -64,6 +64,9 @@ class ParquetFileBasicRequiredTest : public ParquetFileTest, public ::testing::W
       case parquet::Type::INT64:
         *(int64_t*)val_ptr = INT64_MAX;
         break;
+      case parquet::Type::FLOAT:
+        *(float*)val_ptr = std::numeric_limits<float>::max();
+        break;
       case parquet::Type::DOUBLE:
         *(double*)val_ptr = std::numeric_limits<double>::max();
         break;
@@ -109,7 +112,10 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
 
 INSTANTIATE_TEST_CASE_P(InstantiationName,
                         ParquetFileBasicRequiredTest,
-                        ::testing::Values(parquet::Type::INT32, parquet::Type::INT64, parquet::Type::DOUBLE));
+                        ::testing::Values(parquet::Type::INT32,
+                                          parquet::Type::INT64,
+                                          parquet::Type::DOUBLE,
+                                          parquet::Type::FLOAT));
 
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers
