@@ -24,7 +24,7 @@ using std::vector;
 
 namespace parquet_file {
 const int kDataBufferSize = 1024000;
-
+const int VARIABLE_BYTES_PER_DATUM = 0;
 // ParquetColumn represents a Parquet Column of data.  ParquetColumn
 // can contain children, which is how an, for example, Apache Avro
 // message could be represented.
@@ -91,7 +91,7 @@ class ParquetColumn {
   ColumnMetaData ParquetColumnMetaData() const;
   // Pretty printing method.
   string ToString() const;
-
+  size_t ColumnDataSizeInBytes();
  private:
   void FlushLevels(int fd, const vector<uint8_t>& levels_array);
 
@@ -136,8 +136,11 @@ class ParquetColumn {
   // The number of bytes each instance of the datatype stored in this
   // column takes.
   uint8_t bytes_per_datum_;
-  // Data buffer
+  // Data buffer for fixed-width data.
   unsigned char data_buffer_[kDataBufferSize];
+  // Data buffer for byte array data.
+  vector<vector<uint8_t>> byte_array_buffer_;
+
   // Current data pointer;
   unsigned char* data_ptr_;
   // Repetition level array. Run-length encoded before being written.

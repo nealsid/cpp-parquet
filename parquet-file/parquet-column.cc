@@ -164,6 +164,7 @@ uint8_t ParquetColumn::BytesForDataType(Type::type dataType) {
   case Type::INT96:
     return 12;
   case Type::BYTE_ARRAY:
+    return VARIABLE_BYTES_PER_DATUM;
   case Type::BOOLEAN:
   default:
     assert(0);
@@ -246,7 +247,7 @@ void ParquetColumn::EncodeDefinitionLevels(
   FieldRepetitionType::type repetition_type = getFieldRepetitionType();
   if (repetition_type == FieldRepetitionType::REPEATED ||
       repetition_type == FieldRepetitionType::OPTIONAL) {
-    VLOG(2) << "\tNon-required/Non-optional field, encoding definition levels";
+    VLOG(2) << "\tRepeated or optional field, encoding definition levels";
     EncodeLevels(definition_levels_, encoded_definition_levels,
                  max_definition_level_);
   } else {
@@ -254,20 +255,33 @@ void ParquetColumn::EncodeDefinitionLevels(
   }
 }
 
+size_t ParquetColumn::ColumnDataSizeInBytes() {
+  if (Children().size() == 0) {
+    return 0;
+  }
+
+  if (data_type_ != Type::BYTE_ARRAY) {
+    return BytesForDataType(data_type_) * num_datums_;
+  }
+
+  size_t total_byte_array_size = 0;
+  for (int i = 0; i < byte_array_buffer_.size(); ++i) {
+    total_byte_array_size += byte_array_buffer_[i].size();
+  }
+  return total_byte_array_size;
+}
+
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   LOG_IF(FATAL, getEncoding() != Encoding::PLAIN)
     << "Encoding can only be plain at this time.";
   LOG_IF(FATAL, getCompressionCodec() != CompressionCodec::UNCOMPRESSED)
     << "Compression is not supported at this time.";
-
   LOG_IF(FATAL, Children().size() != 0)  <<
       "Flush called on container column";
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
   VLOG(2) << "Inside flush for " << FullSchemaPath();
-  VLOG(2) << "\tData size: "
-          << (Children().size() == 0 ? BytesForDataType(data_type_) : 0) * num_datums_
-          << " bytes.";
+  VLOG(2) << "\tData size: " << ColumnDataSizeInBytes() << " bytes.";
   VLOG(2) << "\tNumber of records: " << NumRecords();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
   vector<uint8_t> encoded_repetition_levels, encoded_definition_levels;
