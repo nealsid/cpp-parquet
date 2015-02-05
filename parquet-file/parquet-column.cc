@@ -266,7 +266,7 @@ size_t ParquetColumn::ColumnDataSizeInBytes() {
 
   size_t total_byte_array_size = 0;
   for (int i = 0; i < byte_array_buffer_.size(); ++i) {
-    total_byte_array_size = byte_array_buffer_[i].size();
+    total_byte_array_size += byte_array_buffer_[i].size();
   }
   return total_byte_array_size;
 }
