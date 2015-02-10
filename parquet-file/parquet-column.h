@@ -23,6 +23,9 @@ using std::to_string;
 using std::vector;
 
 namespace parquet_file {
+
+class ParquetColumnPage;
+
 const int kDataBufferSize = 1024000;
 const int VARIABLE_BYTES_PER_DATUM = 0;
 // ParquetColumn represents a Parquet Column of data.  ParquetColumn

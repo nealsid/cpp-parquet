@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <bitset>
 #include <boost/algorithm/string/join.hpp>
+#include <parquet-file/parquet-column-page.h>
 #include <parquet-file/util/rle-encoding.h>
 #include <thrift/protocol/TCompactProtocol.h>
 
@@ -27,26 +28,26 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     max_repetition_level_(max_repetition_level),
     encoding_(encoding),
     data_type_(data_type),
-    num_records_(0),
-    num_datums_(0),
     compression_codec_(compression_codec),
     // I'm purposely using the constructor parameter in the next line,
     // as opposed to data_type_, in order to be clear that I'm am
     // avoiding a dependency on the order of variable declarations in
     // the class.
     bytes_per_datum_(BytesForDataType(data_type)),
-    data_ptr_(data_buffer_),
     column_write_offset_(-1L) {
+  this->column_pages_.push_back(new ParquetColumnPage(data_type,
+                                                      max_repetition_level,
+                                                      max_definition_level));
 }
 
 ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              FieldRepetitionType::type repetition_type)
   : column_name_(column_name),
     repetition_type_(repetition_type),
-    num_records_(0),
-    num_datums_(0),
-    data_ptr_(data_buffer_),
-    column_write_offset_(-1L) {
+    bytes_per_datum_(0),
+    column_write_offset_(-1L),
+    max_repetition_level_(-1),
+    max_definition_level_(-1) {
 }
 
 const vector<ParquetColumn*>& ParquetColumn::Children() const {
@@ -90,65 +91,15 @@ string ParquetColumn::ToString() const {
     parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->getFieldRepetitionType())
     + "/" + to_string(Children().size()) + " children"
     + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->getType())
-    + "/" + to_string(num_records_) + " records"
-    + "/" + to_string(num_datums_) + " pieces of data"
     + "/" + to_string(bytes_per_datum_) + " bytes per datum";
 }
 
-void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
-                               uint32_t n) {
-  CHECK_LT(repetition_level, max_repetition_level_) <<
-    "For adding repeated data in this column, use AddRepeatedData";
-  // TODO: check for overflow of multiply
-  size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_ptr_, buf, num_bytes);
-  data_ptr_ += num_bytes;
-  num_records_ += n;
-  num_datums_ += n;
-  for (int i = 0; i < n; ++i) {
-    repetition_levels_.push_back(repetition_level);
-    definition_levels_.push_back(max_definition_level_);
-  }
-}
-
-// Adds repeated data to this column.  All data is considered part
-// of the same record.
-void ParquetColumn::AddRepeatedData(void *buf,
-                                    uint16_t current_repetition_level,
-                                    uint32_t n) {
-  LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::REPEATED) <<
-    "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
-  size_t num_bytes = n * bytes_per_datum_;
-  memcpy(data_ptr_, buf, n * bytes_per_datum_);
-  data_ptr_ += num_bytes;
-  repetition_levels_.push_back(current_repetition_level);
-  definition_levels_.push_back(max_definition_level_);
-  for (int i = 1; i < n; ++i) {
-    repetition_levels_.push_back(max_repetition_level_);
-    definition_levels_.push_back(max_definition_level_);
-  }
-  num_records_ += 1;
-  num_datums_ += n;
-}
-
-void ParquetColumn::AddNulls(uint16_t current_repetition_level,
-                             uint16_t current_definition_level,
-                             uint32_t n) {
-  LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::OPTIONAL) <<
-    "Cannot add NULL to non-optional column: " << FullSchemaPath();
-  for (int i = 0; i < n; ++i) {
-    repetition_levels_.push_back(current_repetition_level);
-    definition_levels_.push_back(current_definition_level);
-  }
-  num_records_ += n;
-}
-
 uint32_t ParquetColumn::NumRecords() const {
-  return num_records_;
+  return this->column_pages_.back()->NumRecords();
 }
 
 uint32_t ParquetColumn::NumDatums() const {
-  return num_datums_;
+  return this->column_pages_.back()->NumDatums();
 }
 
 // static
@@ -186,6 +137,30 @@ void ParquetColumn::SetChildren(const vector<ParquetColumn*>& children) {
 
 void ParquetColumn::AddChild(ParquetColumn* child) {
   children_.push_back(child);
+}
+
+// Method that adds some data to this column.  Each datum in buf
+// is considered it's own record, if this field is repeated.
+void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level, uint32_t n) {
+  this->column_pages_.back()->AddRecords(buf, repetition_level, n);
+}
+
+// Adds repeated data to this column.  All data is considered part
+// of the same record.
+void ParquetColumn::AddRepeatedData(void *buf, uint16_t current_repetition_level,
+                                    uint32_t n) {
+  this->column_pages_.back()->AddRepeatedData(buf,
+                                              current_repetition_level,
+                                              n);
+}
+
+// Add a NULL to this column.
+void ParquetColumn::AddNulls(uint16_t current_repetition_level,
+                             uint16_t current_definition_level,
+                             uint32_t n) {
+  this->column_pages_.back()->AddNulls(current_definition_level,
+                                       current_definition_level,
+                                       n);
 }
 
 void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
