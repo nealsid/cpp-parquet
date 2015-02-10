@@ -122,35 +122,17 @@ class ParquetColumn {
   // A list of columns that are children of this one.
   vector<ParquetColumn*> children_;
 
+  // A list of pages that the data for this column are stored in.
+  vector<ParquetColumnPage*> column_pages_;
   // Bookkeeping
-  // How many did the page header + R&D levels + data take up?
-  uint32_t uncompressed_bytes_;
-  // how many records are in this column?  This includes
-  // NULLs.  Repeated fields are counted as 1 record.
-  uint32_t num_records_;
-  // How many pieces of data are in this column.  For this field, repeated
-  // data is not counted as one record.  So if you had an array field, and
-  // an individual record contained [1,2,3,4,5],  num_datums_ would 5, and
-  // num_records_ would be 1.
-  uint32_t num_datums_;
   // The number of bytes each instance of the datatype stored in this
   // column takes.
-  uint8_t bytes_per_datum_;
-  // Data buffer for fixed-width data.
-  unsigned char data_buffer_[kDataBufferSize];
-  // Data buffer for byte array data.
-  vector<vector<uint8_t>> byte_array_buffer_;
+  const uint8_t bytes_per_datum_;
 
-  // Current data pointer;
-  unsigned char* data_ptr_;
-  // Repetition level array. Run-length encoded before being written.
-  vector<uint8_t> repetition_levels_;
   // Integer representing max repetition level in the schema tree.
-  uint16_t max_repetition_level_;
+  const uint16_t max_repetition_level_;
   // Integer representing max definition level.
-  uint16_t max_definition_level_;
-  // Definition level array.  Also RLE before being written.
-  vector<uint8_t> definition_levels_;
+  const uint16_t max_definition_level_;
   // The offset into the file where column data is written.
   off_t column_write_offset_;
 };
