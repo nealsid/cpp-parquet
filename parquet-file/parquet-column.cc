@@ -329,15 +329,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     FlushLevels(fd, encoded_definition_levels);
   }
 
-  for (int i = 0; i < NumDatums(); ++i) {
-    LOG_IF(FATAL, data_buffer_ + (i * bytes_per_datum_) >= data_ptr_)
-        << "Exceeded data added to internal buffer";
-    ssize_t written = write(fd, data_buffer_ + i * bytes_per_datum_,
-                            bytes_per_datum_);
-    if (written != bytes_per_datum_) {
-      LOG(FATAL) << "Did not write correct number of bytes for element %d\n"
-                 << i;
-    }
+  ssize_t total_data_size = bytes_per_datum_ * NumDatums();
+  ssize_t written = write(fd, data_buffer_,
+                          total_data_size);
+  if (written != total_data_size) {
+    LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << total_data_size;
   }
   VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
