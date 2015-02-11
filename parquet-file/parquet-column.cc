@@ -53,6 +53,7 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     repetition_type_(repetition_type),
     num_records_(0),
     num_datums_(0),
+    data_type_(parquet::Type::BOOLEAN),
     column_write_offset_(-1L) {
 }
 
