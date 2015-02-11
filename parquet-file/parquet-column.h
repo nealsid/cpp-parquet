@@ -2,15 +2,14 @@
 
 #include "./parquet_types.h"
 #include <thrift/protocol/TCompactProtocol.h>
+#include <boost/shared_array.hpp>
 #include <glog/logging.h>
-#include <boost/shared_ptr.hpp>
 #include <string>
 #include <vector>
 
 #ifndef PARQUET_FILE_PARQUET_COLUMN_H_
 #define PARQUET_FILE_PARQUET_COLUMN_H_
 
-using boost::shared_ptr;
 using parquet::ColumnChunk;
 using parquet::ColumnMetaData;
 using parquet::CompressionCodec;
@@ -43,7 +42,9 @@ class ParquetColumn {
                 uint16_t max_definition_level,
                 FieldRepetitionType::type repetition_type,
                 Encoding::type encoding,
-                CompressionCodec::type compression_codec);
+                CompressionCodec::type compression_codec,
+                boost::shared_array<uint8_t> data_buffer = boost::shared_array<uint8_t>((uint8_t*)0),
+                uint32_t data_buffer_size_in_bytes = 0);
 
   // Constructor for a container column.
   ParquetColumn(const vector<string>& column_name,
@@ -93,6 +94,7 @@ class ParquetColumn {
   string ToString() const;
   size_t ColumnDataSizeInBytes();
  private:
+
   void FlushLevels(int fd, const vector<uint8_t>& levels_array);
 
   // Helper method to encode a vector of 8-bit integers into an output
@@ -137,12 +139,16 @@ class ParquetColumn {
   // column takes.
   uint8_t bytes_per_datum_;
   // Data buffer for fixed-width data.
-  unsigned char data_buffer_[kDataBufferSize];
-  // Data buffer for byte array data.
-  vector<vector<uint8_t>> byte_array_buffer_;
+  boost::shared_array<uint8_t> data_buffer_;
 
-  // Current data pointer;
-  unsigned char* data_ptr_;
+  // Current data pointer.  It points inside data_buffer_ above, but,
+  // sadly, there doesn't seem to be a way to use pointers to the
+  // middle of an array and get shared_array semantics with the array.
+  // So we have to use a raw pointer.  However, our semantics are
+  // fairly easy to understand: delete the buffer pointed to by
+  // data_buffer_ (above) when this class is deleted, in which case
+  // the data_ptr_ is useless anyway.
+  uint8_t* data_ptr_;
   // Repetition level array. Run-length encoded before being written.
   vector<uint8_t> repetition_levels_;
   // Integer representing max repetition level in the schema tree.

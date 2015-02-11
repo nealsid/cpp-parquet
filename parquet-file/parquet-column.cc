@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <bitset>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/shared_array.hpp>
 #include <parquet-file/util/rle-encoding.h>
 #include <thrift/protocol/TCompactProtocol.h>
 
@@ -20,7 +21,9 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              uint16_t max_definition_level,
                              FieldRepetitionType::type repetition_type,
                              Encoding::type encoding,
-                             CompressionCodec::type compression_codec)
+                             CompressionCodec::type compression_codec,
+                             boost::shared_array<uint8_t> data_buffer,
+                             uint32_t data_buffer_size_in_bytes)
   : column_name_(column_name),
     repetition_type_(repetition_type),
     max_definition_level_(max_definition_level),
@@ -35,8 +38,13 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     // avoiding a dependency on the order of variable declarations in
     // the class.
     bytes_per_datum_(BytesForDataType(data_type)),
-    data_ptr_(data_buffer_),
     column_write_offset_(-1L) {
+  if (data_buffer.get() != nullptr) {
+    data_buffer_.reset(data_buffer.get());
+  } else {
+    data_buffer_.reset(new uint8_t[kDataBufferSize]);
+  }
+  data_ptr_ = data_buffer_.get();
 }
 
 ParquetColumn::ParquetColumn(const vector<string>& column_name,
@@ -45,7 +53,6 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     repetition_type_(repetition_type),
     num_records_(0),
     num_datums_(0),
-    data_ptr_(data_buffer_),
     column_write_offset_(-1L) {
 }
 
@@ -195,7 +202,7 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
   int max_buffer_size =
       impala::RleEncoder::MaxBufferSize(level_vector.size(),
                                         max_level);
-  shared_ptr<uint8_t> output_buffer(new uint8_t[max_buffer_size]);
+  boost::shared_array<uint8_t> output_buffer(new uint8_t[max_buffer_size]);
   impala::RleEncoder encoder(output_buffer.get(), max_buffer_size, max_level);
   VLOG(2) << "\tLevels size: " << level_vector.size();
   for (uint8_t level : level_vector) {
@@ -264,11 +271,7 @@ size_t ParquetColumn::ColumnDataSizeInBytes() {
     return BytesForDataType(data_type_) * num_datums_;
   }
 
-  size_t total_byte_array_size = 0;
-  for (int i = 0; i < byte_array_buffer_.size(); ++i) {
-    total_byte_array_size += byte_array_buffer_[i].size();
-  }
-  return total_byte_array_size;
+  return -1;
 }
 
 void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
@@ -330,7 +333,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   }
 
   ssize_t total_data_size = bytes_per_datum_ * NumDatums();
-  ssize_t written = write(fd, data_buffer_,
+  ssize_t written = write(fd, data_buffer_.get(),
                           total_data_size);
   if (written != total_data_size) {
     LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << total_data_size;

@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <parquet-file/parquet-column.h>
 #include <stdint.h>
+#include <strings.h>
 #include <unistd.h>
 
 using parquet_file::ParquetColumn;
@@ -53,7 +54,9 @@ class ParquetFileTest : public ::testing::Test {
   string parquet_dump_executable_path_;
 };
 
-class ParquetFileBasicRequiredTest : public ParquetFileTest, public ::testing::WithParamInterface<parquet::Type::type> {
+class ParquetFileBasicRequiredTest :
+      public ParquetFileTest,
+      public ::testing::WithParamInterface<parquet::Type::type> {
  protected:
   uint8_t* SentinelValueForType() {
     uint8_t* val_ptr = new uint8_t[ParquetColumn::BytesForDataType(GetParam())];
@@ -117,9 +120,57 @@ INSTANTIATE_TEST_CASE_P(InstantiationName,
                                           parquet::Type::DOUBLE,
                                           parquet::Type::FLOAT));
 
+// Tests that the output works with two columns of required integers.
+TEST_F(ParquetFileTest, TwoRequiredColumnsWithProvidedBuffer) {
+  ParquetFile output(output_filename_);
+
+  parquet::Type::type column_type = parquet::Type::INT32;
+  boost::shared_array<uint8_t> buffer1(new uint8_t[2000]);
+  boost::shared_array<uint8_t> buffer2(new uint8_t[2000]);
+  bzero(buffer1.get(), 2000);
+  bzero(buffer2.get(), 2000);
+  ParquetColumn* one_column =
+    new ParquetColumn({"AllInts"}, column_type,
+                      1, 1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED,
+                      buffer1,
+                      2000);
+
+  ParquetColumn* two_column =
+    new ParquetColumn({"AllInts1"}, column_type,
+                      1, 1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED,
+                      buffer2,
+                      2000);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
+  root_column->SetChildren({one_column, two_column});
+  output.SetSchema(root_column);
+  int32_t data_value = INT_MAX;
+
+  int num_values = 500;
+  for (int i = 0; i < num_values; ++i) {
+    one_column->AddRecords(&data_value, 0, 1);
+    two_column->AddRecords(&data_value, 0, 1);
+  }
+  output.Flush();
+  // Verify that the Parquet code actually used our buffers.
+  for (int i = 0 ; i < 500 ; ++i) {
+    CHECK_EQ(*(((int32_t*)buffer1.get() + i)), INT_MAX) <<
+        "Buffer was not filled with UINT_MAX";
+    CHECK_EQ(*(((int32_t*)buffer2.get() + i)), INT_MAX) <<
+        "Buffer was not filled with UINT_MAX";
+  }
+}
+
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers
-// the other column has 1 individual integer in the records.
+// the other column has 1 individual integer in the record.
 TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   ParquetFile output(output_filename_);
 
