@@ -23,6 +23,8 @@ using std::vector;
 
 namespace parquet_file {
 const int kDataBufferSize = 1024000;
+const int kDataPageSize = 512000;  // pretty arbitrary.  this will be
+                                   // made configurable in the future.
 const int VARIABLE_BYTES_PER_DATUM = 0;
 // ParquetColumn represents a Parquet Column of data.  ParquetColumn
 // can contain children, which is how an, for example, Apache Avro
@@ -126,7 +128,7 @@ class ParquetColumn {
 
   // Bookkeeping
   // How many did the page header + R&D levels + data take up?
-  uint32_t uncompressed_bytes_;
+  uint64_t uncompressed_bytes_;
   // how many records are in this column?  This includes
   // NULLs.  Repeated fields are counted as 1 record.
   uint32_t num_records_;

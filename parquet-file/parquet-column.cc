@@ -220,15 +220,6 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
     int bytes_to_log = 6;
     VLOG(2) << "\tLevel bitstream (first "
             << bytes_to_log << " bytes only): ";
-    for (int i = 0; i < num_bytes; ++i) {
-      VLOG(2) << "\t" << std::bitset<8>(output_buffer.get()[i]);
-    }
-  }
-
-  if (VLOG_IS_ON(2)) {
-    int bytes_to_log = 6;
-    VLOG(2) << "\tLevel bitstream (first "
-            << bytes_to_log << " bytes only): ";
     for (int i = 0; i < output_vector->size() && i < bytes_to_log; ++i) {
       VLOG(2) << "\t" << std::bitset<8>(output_vector->at(i));
     }
@@ -264,7 +255,7 @@ void ParquetColumn::EncodeDefinitionLevels(
 }
 
 size_t ParquetColumn::ColumnDataSizeInBytes() {
-  if (Children().size() == 0) {
+  if (Children().size() != 0) {
     return 0;
   }
 
@@ -294,11 +285,7 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   uint32_t repetition_level_size = encoded_repetition_levels.size();
   uint32_t definition_level_size = encoded_definition_levels.size();
 
-  DataPageHeader data_header;
-  PageHeader page_header;
-  page_header.__set_type(PageType::DATA_PAGE);
-
-  uncompressed_bytes_ = BytesForDataType(data_type_) * NumDatums()
+  uncompressed_bytes_ = ColumnDataSizeInBytes()
                         + repetition_level_size + definition_level_size;
   // We add 8 to this for the two ints at that indicate the length of
   // the rep & def levels.
@@ -308,6 +295,11 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   if (definition_level_size > 0) {
     uncompressed_bytes_ += 4;
   }
+
+  DataPageHeader data_header;
+  PageHeader page_header;
+  page_header.__set_type(PageType::DATA_PAGE);
+
   page_header.__set_uncompressed_page_size(uncompressed_bytes_);
   // Obviously, this is a stop gap until compression support is added.
   page_header.__set_compressed_page_size(uncompressed_bytes_);
@@ -333,12 +325,47 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     FlushLevels(fd, encoded_definition_levels);
   }
 
-  ssize_t total_data_size = bytes_per_datum_ * NumDatums();
-  ssize_t written = write(fd, data_buffer_.get(),
-                          total_data_size);
-  if (written != total_data_size) {
-    LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << total_data_size;
+  size_t data_size_to_write = ColumnDataSizeInBytes();
+  VLOG(2) << "\tData size: " << data_size_to_write;
+  size_t total_written = 0;
+  // TODO rewrite this prototype code since we shouldn't have to
+  // handle the cases of less than INT_MAX bytes and greater than
+  // INT_MAX bytes separately.  In fact, once we support multiple
+  // pages, we should just write in INT_MAX chunks to each page.
+  if (data_size_to_write <= INT_MAX) {
+    ssize_t written = write(fd, data_buffer_.get(),
+                            data_size_to_write);
+    if (written != data_size_to_write) {
+      if (written == -1) {
+        LOG(ERROR) << strerror(errno);
+      }
+      LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << data_size_to_write;
+    }
+    total_written = written;
+  } else {
+    size_t bytes_left_to_write = data_size_to_write;
+    int iterations = 0;
+    size_t bytes_for_next_chunk = INT_MAX;
+    while(bytes_left_to_write > 0) {
+      ssize_t written = write(fd, data_buffer_.get() + iterations*INT_MAX,
+                              bytes_for_next_chunk);
+      if (written != bytes_for_next_chunk) {
+        if (written == -1) {
+          LOG(ERROR) << strerror(errno);
+        }
+        LOG(FATAL) << "Did not write correct number of bytes: " << total_written << "/" << data_size_to_write;
+      }
+      bytes_left_to_write -= bytes_for_next_chunk;
+      ++iterations;
+      total_written += written;
+      if (bytes_left_to_write <= INT_MAX) {
+        bytes_for_next_chunk = bytes_left_to_write;
+      } else {
+        bytes_for_next_chunk = INT_MAX;
+      }
+    }
   }
+  VLOG(2) << "\tData bytes written: " << total_written;
   VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
 

@@ -92,7 +92,6 @@ void ParquetFile::Flush() {
   VLOG(2) << "Offset at beginning of flush: " << to_string(current_offset);
   assert(current_offset == strlen(kParquetMagicBytes));
 
-  uint32_t num_recordss = -1;
   set<uint64_t> column_record_counts;
   NumberOfRecords(&column_record_counts);
   LOG_IF(FATAL, column_record_counts.size() > 1)
@@ -139,6 +138,7 @@ void ParquetFile::Flush() {
   write(fd_, &file_metadata_length, sizeof(file_metadata_length));
   write(fd_, kParquetMagicBytes, strlen(kParquetMagicBytes));
   VLOG(2) << "Done.";
+  close(fd_);
 }
 
 void ParquetFile::SetSchema(ParquetColumn* root) {
