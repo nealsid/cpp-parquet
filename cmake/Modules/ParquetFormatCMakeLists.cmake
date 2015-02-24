@@ -1,8 +1,8 @@
 ExternalProject_Add(parquet-format
    PREFIX ${CMAKE_BINARY_DIR}/third_party/build/parquet-format
-   GIT_REPOSITORY https://github.com/Parquet/parquet-format
-   # This is horrible - if I set these to empty, CMAKE doesn't
-   # execute the subsequent steps?
+   GIT_REPOSITORY https://github.com/apache/incubator-parquet-format
+   GIT_TAG release-2.2.0-rc2
+   # Set these to nonempty, so CMake executes the subsequent steps.
    CONFIGURE_COMMAND touch /tmp/foo
    BUILD_COMMAND touch /tmp/foo
    INSTALL_COMMAND touch /tmp/foo

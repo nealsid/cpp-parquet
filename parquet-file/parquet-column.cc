@@ -110,13 +110,19 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, num_bytes);
-  data_ptr_ += num_bytes;
   num_records_ += n;
   num_datums_ += n;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(repetition_level);
     definition_levels_.push_back(max_definition_level_);
+    RecordMetadata r;
+    r.repetition_level_index = repetition_levels_.size() - 1;
+    r.definition_level_index = definition_levels_.size() - 1;
+    r.byte_begin = data_ptr_ + i;
+    r.byte_end = r.byte_end + bytes_per_datum_;
+    record_metadata.push_back(r);
   }
+  data_ptr_ += num_bytes;
 }
 
 // Adds repeated data to this column.  All data is considered part
@@ -201,7 +207,7 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
                                  uint16_t max_level) {
   CHECK_NOTNULL(output_vector);
   int max_buffer_size =
-      impala::RleEncoder::MaxBufferSize(level_vector.size(),
+      impala::RleEncoder::MaxBufferSize(num_datums_,
                                         max_level);
   boost::shared_array<uint8_t> output_buffer(new uint8_t[max_buffer_size]);
   impala::RleEncoder encoder(output_buffer.get(), max_buffer_size, max_level);
@@ -232,7 +238,8 @@ void ParquetColumn::EncodeRepetitionLevels(
   encoded_repetition_levels->clear();
   if (getFieldRepetitionType() == FieldRepetitionType::REPEATED) {
     VLOG(2) << "\tRepeated field, encoding repetition levels";
-    EncodeLevels(repetition_levels_, encoded_repetition_levels,
+    EncodeLevels(repetition_levels_,
+                 encoded_repetition_levels,
                  max_repetition_level_);
   } else {
     VLOG(2) << "\tNon-repeated field, skipping repetition levels";
@@ -247,7 +254,8 @@ void ParquetColumn::EncodeDefinitionLevels(
   if (repetition_type == FieldRepetitionType::REPEATED ||
       repetition_type == FieldRepetitionType::OPTIONAL) {
     VLOG(2) << "\tRepeated or optional field, encoding definition levels";
-    EncodeLevels(definition_levels_, encoded_definition_levels,
+    EncodeLevels(definition_levels_,
+                 encoded_definition_levels,
                  max_definition_level_);
   } else {
     VLOG(2) << "\tSingular required field, skipping definition levels";
@@ -260,13 +268,15 @@ size_t ParquetColumn::ColumnDataSizeInBytes() {
   }
 
   if (data_type_ != Type::BYTE_ARRAY) {
-    return BytesForDataType(data_type_) * num_datums_;
+    return bytes_per_datum_ * num_datums_;
   }
 
+  LOG(FATAL) << "Cannot calculate size for byte arrays yet";
   return -1;
 }
 
-void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
+void ParquetColumn::Flush(int fd,
+                          TCompactProtocol* protocol) {
   LOG_IF(FATAL, getEncoding() != Encoding::PLAIN)
     << "Encoding can only be plain at this time.";
   LOG_IF(FATAL, getCompressionCodec() != CompressionCodec::UNCOMPRESSED)
@@ -276,8 +286,9 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
 
   column_write_offset_ = lseek(fd, 0, SEEK_CUR);
   VLOG(2) << "Inside flush for " << FullSchemaPath();
-  VLOG(2) << "\tData size: " << ColumnDataSizeInBytes() << " bytes.";
-  VLOG(2) << "\tNumber of records: " << NumRecords();
+  size_t column_data_size = ColumnDataSizeInBytes();
+  VLOG(2) << "\tData size: " << column_data_size << " bytes.";
+  VLOG(2) << "\tNumber of records for this flush: " <<  num_records_;
   VLOG(2) << "\tFile offset: " << column_write_offset_;
   vector<uint8_t> encoded_repetition_levels, encoded_definition_levels;
   EncodeRepetitionLevels(&encoded_repetition_levels);
@@ -285,8 +296,8 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
   uint32_t repetition_level_size = encoded_repetition_levels.size();
   uint32_t definition_level_size = encoded_definition_levels.size();
 
-  uncompressed_bytes_ = ColumnDataSizeInBytes()
-                        + repetition_level_size + definition_level_size;
+  uncompressed_bytes_ = column_data_size + repetition_level_size +
+                        definition_level_size;
   // We add 8 to this for the two ints at that indicate the length of
   // the rep & def levels.
   if (repetition_level_size > 0) {
@@ -325,59 +336,30 @@ void ParquetColumn::Flush(int fd, TCompactProtocol* protocol) {
     FlushLevels(fd, encoded_definition_levels);
   }
 
-  size_t data_size_to_write = ColumnDataSizeInBytes();
-  VLOG(2) << "\tData size: " << data_size_to_write;
+  VLOG(2) << "\tData size: " << column_data_size;
   size_t total_written = 0;
-  // TODO rewrite this prototype code since we shouldn't have to
-  // handle the cases of less than INT_MAX bytes and greater than
-  // INT_MAX bytes separately.  In fact, once we support multiple
-  // pages, we should just write in INT_MAX chunks to each page.
-  if (data_size_to_write <= INT_MAX) {
-    ssize_t written = write(fd, data_buffer_.get(),
-                            data_size_to_write);
-    if (written != data_size_to_write) {
-      if (written == -1) {
-        LOG(ERROR) << strerror(errno);
-      }
-      LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << data_size_to_write;
+  ssize_t written = write(fd, data_buffer_.get(),
+                          column_data_size);
+  if (written != column_data_size) {
+    if (written == -1) {
+      LOG(ERROR) << strerror(errno);
     }
-    total_written = written;
-  } else {
-    size_t bytes_left_to_write = data_size_to_write;
-    int iterations = 0;
-    size_t bytes_for_next_chunk = INT_MAX;
-    while(bytes_left_to_write > 0) {
-      ssize_t written = write(fd, data_buffer_.get() + iterations*INT_MAX,
-                              bytes_for_next_chunk);
-      if (written != bytes_for_next_chunk) {
-        if (written == -1) {
-          LOG(ERROR) << strerror(errno);
-        }
-        LOG(FATAL) << "Did not write correct number of bytes: " << total_written << "/" << data_size_to_write;
-      }
-      bytes_left_to_write -= bytes_for_next_chunk;
-      ++iterations;
-      total_written += written;
-      if (bytes_left_to_write <= INT_MAX) {
-        bytes_for_next_chunk = bytes_left_to_write;
-      } else {
-        bytes_for_next_chunk = INT_MAX;
-      }
-    }
+    LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << column_data_size;
   }
+  total_written = written;
   VLOG(2) << "\tData bytes written: " << total_written;
   VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
 
-void ParquetColumn::FlushLevels(int fd, const vector<uint8_t>& levels_array) {
+void ParquetColumn::FlushLevels(int fd, const vector<uint8_t>& levels_vector) {
   VLOG(3) << "\tOffset before writing size: " << lseek(fd, 0, SEEK_CUR);
-  uint32_t num_elements = levels_array.size();
+  uint32_t num_elements = levels_vector.size();
   write(fd, &num_elements, 4);
   VLOG(3) << "\tOffset after writing size: " << lseek(fd, 0, SEEK_CUR);
   size_t bytes_written = 0;
   for (int i = 0; i < num_elements; ++i) {
     bytes_written +=
-        write(fd, &(levels_array[i]), 1);
+        write(fd, &(levels_vector[i]), 1);
   }
   if (bytes_written != num_elements) {
     LOG(WARNING) << "Only " << bytes_written << " of "

@@ -14,3 +14,5 @@ test.parquet
 avro-schema-walker-example
 cppparquet
 parquet-file-test
+
+*-golden

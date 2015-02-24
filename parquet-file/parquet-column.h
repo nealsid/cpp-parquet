@@ -19,6 +19,7 @@ using parquet::FieldRepetitionType;
 using parquet::Type;
 using std::string;
 using std::to_string;
+using std::tuple;
 using std::vector;
 
 namespace parquet_file {
@@ -26,6 +27,14 @@ const int kDataBufferSize = 1024000;
 const int kDataPageSize = 512000;  // pretty arbitrary.  this will be
                                    // made configurable in the future.
 const int VARIABLE_BYTES_PER_DATUM = 0;
+
+struct RecordMetadata {
+  uint32_t repetition_level_index;
+  uint32_t definition_level_index;
+  uint8_t* byte_begin;
+  uint8_t* byte_end;
+};
+
 // ParquetColumn represents a Parquet Column of data.  ParquetColumn
 // can contain children, which is how an, for example, Apache Avro
 // message could be represented.
@@ -88,16 +97,18 @@ class ParquetColumn {
 
 
   // Flush this column via the protocol provided.
-  void Flush(int fd, apache::thrift::protocol::TCompactProtocol* protocol);
+  void Flush(int fd,
+             apache::thrift::protocol::TCompactProtocol* protocol);
 
   // Generate a Parquet Thrift ColumnMetaData message for this column.
   ColumnMetaData ParquetColumnMetaData() const;
   // Pretty printing method.
   string ToString() const;
   size_t ColumnDataSizeInBytes();
- private:
 
-  void FlushLevels(int fd, const vector<uint8_t>& levels_array);
+ private:
+  // Writes entire vector to the file descriptor given.
+  void FlushLevels(int fd, const vector<uint8_t>& levels_vector);
 
   // Helper method to encode a vector of 8-bit integers into an output
   // buffer.  Used for repetition & definition level encoding.
@@ -125,6 +136,9 @@ class ParquetColumn {
   CompressionCodec::type compression_codec_;
   // A list of columns that are children of this one.
   vector<ParquetColumn*> children_;
+
+  // Store some metadata for each record in the column.
+  vector<RecordMetadata> record_metadata;
 
   // Bookkeeping
   // How many did the page header + R&D levels + data take up?

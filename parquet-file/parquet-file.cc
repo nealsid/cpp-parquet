@@ -106,7 +106,6 @@ void ParquetFile::Flush() {
 
   RowGroup row_group;
   row_group.__set_num_rows(num_records);
-  row_group.__set_total_byte_size(0);
   vector<ColumnChunk> column_chunks;
   for (auto column_iter = file_columns_.begin() + 1 ;
        column_iter != file_columns_.end();
@@ -118,6 +117,7 @@ void ParquetFile::Flush() {
     }
     VLOG(2) << "Writing column: " << column->FullSchemaPath();
     VLOG(2) << "\t" << column->ToString();
+    VLOG(2) << "\t" << "Writing " << num_records << " records";
     column->Flush(fd_, protocol_.get());
     ColumnMetaData column_metadata = column->ParquetColumnMetaData();
     row_group.__set_total_byte_size(row_group.total_byte_size +
@@ -132,6 +132,7 @@ void ParquetFile::Flush() {
   }
   VLOG(2) << "Total bytes for all columns: " << row_group.total_byte_size;
   row_group.__set_columns(column_chunks);
+
   file_meta_data_.__set_row_groups({row_group});
   uint32_t file_metadata_length = file_meta_data_.write(protocol_.get());
   VLOG(2) << "File metadata length: " << file_metadata_length;
