@@ -116,10 +116,12 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
     repetition_levels_.push_back(repetition_level);
     definition_levels_.push_back(max_definition_level_);
     RecordMetadata r;
-    r.repetition_level_index = repetition_levels_.size() - 1;
-    r.definition_level_index = definition_levels_.size() - 1;
+    r.repetition_level_index_start = repetition_levels_.size() - 1;
+    r.repetition_level_index_end = repetition_levels_.size() - 1;
+    r.definition_level_index_start = definition_levels_.size() - 1;
+    r.definition_level_index_end = definition_levels_.size() - 1;
     r.byte_begin = data_ptr_ + i;
-    r.byte_end = r.byte_end + bytes_per_datum_;
+    r.byte_end = r.byte_begin + bytes_per_datum_;
     record_metadata.push_back(r);
   }
   data_ptr_ += num_bytes;
@@ -134,13 +136,25 @@ void ParquetColumn::AddRepeatedData(void *buf,
     "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
+  RecordMetadata r;
+  r.repetition_level_index_start = repetition_levels_.size() - 1;
+  r.definition_level_index_start = definition_levels_.size() - 1;
+  r.byte_begin = data_ptr_;
+
   data_ptr_ += num_bytes;
+
+  r.byte_end = data_ptr_;
   repetition_levels_.push_back(current_repetition_level);
   definition_levels_.push_back(max_definition_level_);
+
   for (int i = 1; i < n; ++i) {
     repetition_levels_.push_back(max_repetition_level_);
     definition_levels_.push_back(max_definition_level_);
   }
+  r.repetition_level_index_end = repetition_levels_.size() - 1;
+  r.repetition_level_index_end = repetition_levels_.size() - 1;
+  record_metadata.push_back(r);
+
   num_records_ += 1;
   num_datums_ += n;
 }
@@ -150,10 +164,18 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
                              uint32_t n) {
   LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::OPTIONAL) <<
     "Cannot add NULL to non-optional column: " << FullSchemaPath();
+  RecordMetadata r;
+  r.repetition_level_index_start = repetition_levels_.size() - 1;
+  r.definition_level_index_start = definition_levels_.size() - 1;
+  r.byte_begin = data_ptr_;
+  r.byte_end = data_ptr_;
   for (int i = 0; i < n; ++i) {
     repetition_levels_.push_back(current_repetition_level);
     definition_levels_.push_back(current_definition_level);
   }
+  r.repetition_level_index_end = repetition_levels_.size() - 1;
+  r.repetition_level_index_end = repetition_levels_.size() - 1;
+  record_metadata.push_back(r);
   num_records_ += n;
 }
 

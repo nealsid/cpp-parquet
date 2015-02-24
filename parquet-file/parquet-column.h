@@ -29,8 +29,10 @@ const int kDataPageSize = 512000;  // pretty arbitrary.  this will be
 const int VARIABLE_BYTES_PER_DATUM = 0;
 
 struct RecordMetadata {
-  uint32_t repetition_level_index;
-  uint32_t definition_level_index;
+  uint32_t repetition_level_index_start;
+  uint32_t repetition_level_index_end;
+  uint32_t definition_level_index_start;
+  uint32_t definition_level_index_end;
   uint8_t* byte_begin;
   uint8_t* byte_end;
 };
@@ -106,6 +108,8 @@ class ParquetColumn {
   string ToString() const;
   size_t ColumnDataSizeInBytes();
 
+  // Store some metadata for each record in the column.
+  vector<RecordMetadata> record_metadata;
  private:
   // Writes entire vector to the file descriptor given.
   void FlushLevels(int fd, const vector<uint8_t>& levels_vector);
@@ -136,9 +140,6 @@ class ParquetColumn {
   CompressionCodec::type compression_codec_;
   // A list of columns that are children of this one.
   vector<ParquetColumn*> children_;
-
-  // Store some metadata for each record in the column.
-  vector<RecordMetadata> record_metadata;
 
   // Bookkeeping
   // How many did the page header + R&D levels + data take up?

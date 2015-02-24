@@ -13,6 +13,7 @@
 
 using parquet_file::ParquetColumn;
 using parquet_file::ParquetFile;
+using parquet_file::RecordMetadata;
 
 namespace {
 
@@ -111,6 +112,20 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
     two_column->AddRecords(data_value.get(), 0, 1);
   }
   output.Flush();
+  vector<RecordMetadata> &rs = one_column->record_metadata;
+  if (VLOG_IS_ON(2)) {
+    VLOG(2) << "\tRecord metadata size: " << rs.size();
+    VLOG(2) << "\tRIndexStart\tRIndexEnd\tDIndexStart\tDIndexEnd\tByteBegin\tByteEnd";
+    for (int i = 0; i < rs.size(); ++i) {
+      RecordMetadata r = rs[i];
+      VLOG(2) << "\t" << r.repetition_level_index_start
+              << "\t" << r.repetition_level_index_end
+              << "\t" << r.definition_level_index_start
+              << "\t" << r.definition_level_index_end
+              << "\t" << (void*)r.byte_begin
+              << "\t" << (void*)r.byte_end;
+    }
+  }
 }
 
 INSTANTIATE_TEST_CASE_P(InstantiationName,
@@ -170,32 +185,32 @@ TEST_F(ParquetFileTest, TwoRequiredColumnsWithProvidedBuffer) {
 
 // Tests that the output works with one column of required integers
 // that end up being 2 gibibytes.
-TEST_F(ParquetFileTest, OneRequiredColumnsTwoGibibytesOfData) {
-  ParquetFile output(output_filename_);
-  boost::shared_array<uint8_t> buffer1(new uint8_t[2147483648]);
+// TEST_F(ParquetFileTest, OneRequiredColumnsTwoGibibytesOfData) {
+//   ParquetFile output(output_filename_);
+//   boost::shared_array<uint8_t> buffer1(new uint8_t[2147483648]);
 
-  parquet::Type::type column_type = parquet::Type::INT32;
-  ParquetColumn* one_column =
-    new ParquetColumn({"AllInts"}, column_type,
-                      1, 1,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED,
-                      buffer1,
-                      2147483648);
+//   parquet::Type::type column_type = parquet::Type::INT32;
+//   ParquetColumn* one_column =
+//     new ParquetColumn({"AllInts"}, column_type,
+//                       1, 1,
+//                       FieldRepetitionType::REQUIRED,
+//                       Encoding::PLAIN,
+//                       CompressionCodec::UNCOMPRESSED,
+//                       buffer1,
+//                       2147483648);
 
-  ParquetColumn* root_column =
-    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
-  root_column->SetChildren({one_column});
-  output.SetSchema(root_column);
-  int32_t data_value = INT_MAX;
+//   ParquetColumn* root_column =
+//     new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
+//   root_column->SetChildren({one_column});
+//   output.SetSchema(root_column);
+//   int32_t data_value = INT_MAX;
 
-  int num_values = 2147483648 / 4;
-  for (int i = 0; i < num_values; ++i) {
-    one_column->AddRecords(&data_value, 0, 1);
-  }
-  output.Flush();
-}
+//   int num_values = 2147483648 / 4;
+//   for (int i = 0; i < num_values; ++i) {
+//     one_column->AddRecords(&data_value, 0, 1);
+//   }
+//   output.Flush();
+// }
 
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers
