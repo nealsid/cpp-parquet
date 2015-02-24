@@ -15,7 +15,7 @@ using parquet_file::ParquetColumn;
 using parquet_file::ParquetFile;
 using parquet_file::RecordMetadata;
 
-namespace {
+namespace parquet_file {
 
 // The fixture for testing class ParquetFile.
 class ParquetFileTest : public ::testing::Test {
@@ -59,6 +59,14 @@ class ParquetFileBasicRequiredTest :
       public ParquetFileTest,
       public ::testing::WithParamInterface<parquet::Type::type> {
  protected:
+
+  // This class is a friend of ParquetColumn but the test cases (which
+  // are subclasses) are not. So they can call this method to get &
+  // examine the record metadata.
+  vector<RecordMetadata>& getColumnRecordMetadata(ParquetColumn* column) {
+    return column->record_metadata;
+  }
+
   uint8_t* SentinelValueForType() {
     uint8_t* val_ptr = new uint8_t[ParquetColumn::BytesForDataType(GetParam())];
     switch(GetParam()) {
@@ -112,10 +120,10 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
     two_column->AddRecords(data_value.get(), 0, 1);
   }
   output.Flush();
-  vector<RecordMetadata> &rs = one_column->record_metadata;
+  vector<RecordMetadata> &rs = getColumnRecordMetadata(one_column);
   if (VLOG_IS_ON(2)) {
     VLOG(2) << "\tRecord metadata size: " << rs.size();
-    VLOG(2) << "\tRIndexStart\tRIndexEnd\tDIndexStart\tDIndexEnd\tByteBegin\tByteEnd";
+    VLOG(2) << "\tRIndexStart\tRIndexEnd\tDIndexStart\tDIndexEnd\tByteBegin\tByteEnd\tSize";
     for (int i = 0; i < rs.size(); ++i) {
       RecordMetadata r = rs[i];
       VLOG(2) << "\t" << r.repetition_level_index_start
@@ -123,12 +131,13 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
               << "\t" << r.definition_level_index_start
               << "\t" << r.definition_level_index_end
               << "\t" << (void*)r.byte_begin
-              << "\t" << (void*)r.byte_end;
+              << "\t" << (void*)r.byte_end
+              << "\t" << r.byte_end - r.byte_begin;
     }
   }
 }
 
-INSTANTIATE_TEST_CASE_P(InstantiationName,
+INSTANTIATE_TEST_CASE_P(ParquetFileBasicTest,
                         ParquetFileBasicRequiredTest,
                         ::testing::Values(parquet::Type::INT32,
                                           parquet::Type::INT64,

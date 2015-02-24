@@ -229,7 +229,7 @@ void ParquetColumn::EncodeLevels(const vector<uint8_t>& level_vector,
                                  uint16_t max_level) {
   CHECK_NOTNULL(output_vector);
   int max_buffer_size =
-      impala::RleEncoder::MaxBufferSize(num_datums_,
+      impala::RleEncoder::MaxBufferSize(level_vector.size(),
                                         max_level);
   boost::shared_array<uint8_t> output_buffer(new uint8_t[max_buffer_size]);
   impala::RleEncoder encoder(output_buffer.get(), max_buffer_size, max_level);

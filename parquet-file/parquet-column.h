@@ -108,8 +108,6 @@ class ParquetColumn {
   string ToString() const;
   size_t ColumnDataSizeInBytes();
 
-  // Store some metadata for each record in the column.
-  vector<RecordMetadata> record_metadata;
  private:
   // Writes entire vector to the file descriptor given.
   void FlushLevels(int fd, const vector<uint8_t>& levels_vector);
@@ -158,6 +156,9 @@ class ParquetColumn {
   // Data buffer for fixed-width data.
   boost::shared_array<uint8_t> data_buffer_;
 
+  friend class ParquetFileBasicRequiredTest;
+  // Store some metadata for each record in the column.
+  vector<RecordMetadata> record_metadata;
   // Current data pointer.  It points inside data_buffer_ above, but,
   // sadly, there doesn't seem to be a way to use pointers to the
   // middle of an array and get shared_array semantics with the array.
