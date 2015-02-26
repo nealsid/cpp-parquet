@@ -80,6 +80,13 @@ void ParquetFile::NumberOfRecords(set<uint64_t>* column_record_counts) const {
   }
 }
 
+uint64_t ParquetFile::NumberOfRecords() const {
+  set<uint64_t> column_record_counts;
+  this->NumberOfRecords(&column_record_counts);
+  CHECK_EQ(column_record_counts.size(), 1) << "Columns do not have same size";
+  return *(column_record_counts.begin());
+}
+
 uint64_t ParquetFile::BytesForRecord(uint64_t record_index) const {
   uint64_t record_size = 0;
   for (auto column = file_columns_.begin() + 1;

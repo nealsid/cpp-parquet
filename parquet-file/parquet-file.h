@@ -40,6 +40,8 @@ class ParquetFile {
   void Close();
   bool IsOK() { return ok_; }
 
+  uint64_t NumberOfRecords() const;
+
   uint64_t BytesForRecord(uint64_t record_index) const;
  private:
   // Walker for the schema.  Parquet requires columns specified as a

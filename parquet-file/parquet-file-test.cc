@@ -49,6 +49,23 @@ class ParquetFileTest : public ::testing::Test {
 
   }
 
+  void CheckRecordMetadata(const ParquetFile& output,
+                           const int number_of_records,
+                           const vector<uint64_t>& record_sizes) const {
+    CHECK_EQ(output.NumberOfRecords(), number_of_records) <<
+        "Number of records was not as expected";
+    int record_size_index = 0;
+    for (int i = 0; i < number_of_records; ++i) {
+      uint64_t bytesForRecord = output.BytesForRecord(i);
+      VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
+      if (record_size_index >= record_sizes.size()) {
+        record_size_index %= record_sizes.size();
+      }
+      CHECK_EQ(bytesForRecord, record_sizes[record_size_index]) <<
+          "Record size was not correct";
+      ++record_size_index;
+    }
+  }
   // Objects declared here can be used by all tests in the test case for Foo.
   string output_filename_;
   char template_[32];
@@ -120,12 +137,16 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
     two_column->AddRecords(data_value.get(), 0, 1);
   }
   output.Flush();
-  for (int i = 0; i < num_values; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    CHECK_EQ(bytesForRecord, 2 * ParquetColumn::BytesForDataType(GetParam())) <<
-        "Record size was not correct";
-  }
+  uint64_t expected_bytes_for_each_record = 2 * ParquetColumn::BytesForDataType(GetParam());
+  CheckRecordMetadata(output,
+                      num_values,
+                      { expected_bytes_for_each_record });
+  // for (int i = 0; i < num_values; ++i) {
+  //   uint64_t bytesForRecord = output.BytesForRecord(i);
+  //   VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
+  //   CHECK_EQ(bytesForRecord, 2 * ParquetColumn::BytesForDataType(GetParam())) <<
+  //       "Record size was not correct";
+  // }
 }
 
 INSTANTIATE_TEST_CASE_P(ParquetFileBasicTest,
@@ -181,6 +202,10 @@ TEST_F(ParquetFileTest, TwoRequiredColumnsWithProvidedBuffer) {
     CHECK_EQ(*(((int32_t*)buffer2.get() + i)), INT_MAX) <<
         "Buffer was not filled with UINT_MAX";
   }
+  uint64_t expected_bytes_for_each_record = 2 * ParquetColumn::BytesForDataType(parquet::Type::INT32);
+  CheckRecordMetadata(output,
+                      num_values,
+                      { expected_bytes_for_each_record });
 }
 
 // Tests that the output works with one column of required integers
@@ -244,10 +269,10 @@ TEST_F(ParquetFileTest, TwoColumnsOfIntsOneRepeated) {
   repeated_column->AddRepeatedData(data, 0, 500);
   required_column->AddRecords(data, 0, 1);
   output.Flush();
-  uint64_t bytesForRecord = output.BytesForRecord(0);
-  VLOG(3) << "\tRecord 0 size: " << bytesForRecord;
-  CHECK_EQ(bytesForRecord, 2004) <<
-      "Record size was not correct";
+  uint64_t expected_bytes_for_each_record = 2004;
+  CheckRecordMetadata(output,
+                      1,
+                      { expected_bytes_for_each_record });
 }
 
 // Tests that the output works with one column of array integers.  The
@@ -276,13 +301,12 @@ TEST_F(ParquetFileTest, OneColumn250Records) {
     repeated_column->AddRepeatedData(data + i, 0, 2);
   }
   output.Flush();
-  for (int i = 0; i < num_records / 2; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    CHECK_EQ(bytesForRecord,
-             2 * ParquetColumn::BytesForDataType(parquet::Type::INT32)) <<
-        "Record size was not correct";
-  }
+
+  uint64_t expected_bytes_for_each_record =
+      2 * ParquetColumn::BytesForDataType(parquet::Type::INT32);
+  CheckRecordMetadata(output,
+                      num_records / 2,
+                      { expected_bytes_for_each_record });
 }
 
 // Tests that the output works with two columns of integers, one array
@@ -356,13 +380,12 @@ TEST_F(ParquetFileTest, OneColumnOptionalData) {
     optional_column->AddRecords(data + i, 0, 1);
   }
   output.Flush();
-  for (int i = 0; i < 5; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    CHECK_EQ(bytesForRecord,
-             ParquetColumn::BytesForDataType(parquet::Type::INT32)) <<
-        "Record size was not correct";
-  }
+  uint64_t expected_bytes_for_each_record =
+      ParquetColumn::BytesForDataType(parquet::Type::INT32);
+
+  CheckRecordMetadata(output,
+                      5,
+                      { expected_bytes_for_each_record });
 }
 
 // Tests that the output works with optional data with nulls
@@ -383,13 +406,10 @@ TEST_F(ParquetFileTest, OneColumn500Nulls) {
   output.SetSchema(root_column);
   optional_column->AddNulls(0, 0, 500);
   output.Flush();
-  for (int i = 0; i < 500; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    CHECK_EQ(bytesForRecord,
-             0) <<
-        "Record size was not correct";
-  }
+  uint64_t expected_bytes_for_each_record = 0;
+  CheckRecordMetadata(output,
+                      500,
+                      { expected_bytes_for_each_record });
 }
 
 // Tests that the output works with optional data with interspersed
@@ -418,19 +438,10 @@ TEST_F(ParquetFileTest, OneColumn500NullsAndData) {
     optional_column->AddRecords(data + i, 0, 1);
   }
   output.Flush();
-  for (int i = 0; i < 1000; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    if (i % 2 == 0) {
-      CHECK_EQ(bytesForRecord,
-               0) <<
-          "Record size was not correct";
-    } else {
-      CHECK_EQ(bytesForRecord,
-               4) <<
-          "Record size was not correct";
-    }
-  }
+  vector<uint64_t> expected_bytes_for_each_record = { 0, 4 };
+  CheckRecordMetadata(output,
+                      1000,
+                      expected_bytes_for_each_record);
 }
 
 // Tests that the output works with nested fields.
@@ -470,13 +481,10 @@ TEST_F(ParquetFileTest, OneColumnNestedData) {
     old_column->AddRecords(data + i, 0, 1);
   }
   output.Flush();
-  for (int i = 0; i < 500; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    CHECK_EQ(bytesForRecord,
-             4) <<
-        "Record size was not correct";
-  }
+  vector<uint64_t> expected_bytes_for_each_record = { 4 };
+  CheckRecordMetadata(output,
+                      500,
+                      expected_bytes_for_each_record);
 }
 
 // Tests that the output works with nested optional fields at the
@@ -518,19 +526,10 @@ TEST_F(ParquetFileTest, OneColumnNestedOptionalData) {
     old_column->AddNulls(0, 0, 1);
   }
   output.Flush();
-  for (int i = 0; i < 500; ++i) {
-    uint64_t bytesForRecord = output.BytesForRecord(i);
-    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-    if (i % 2 == 0) {
-      CHECK_EQ(bytesForRecord,
-               4) <<
-          "Record size was not correct";
-    } else {
-      CHECK_EQ(bytesForRecord,
-               0) <<
-          "Record size was not correct";
-    }
-  }
+  vector<uint64_t> expected_bytes_for_each_record = { 4, 0 };
+  CheckRecordMetadata(output,
+                      500,
+                      expected_bytes_for_each_record);
 }
 
 }  // namespace
