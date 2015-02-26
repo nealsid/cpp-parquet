@@ -28,19 +28,33 @@ using std::vector;
 const uint32_t kDataBytesPerPage = 81920000;
 
 namespace parquet_file {
+const int kMaxDataBytesPerRowGroup = 1024000;
 
 class ParquetColumnWalker;
 // Main class that represents a Parquet file on disk.
 class ParquetFile {
  public:
+  // Constructor.  file_base is the output file. The num_files is a
+  // sharding parameter, but currently isn't supported.
   ParquetFile(string file_base, int num_files = 1);
+
+  // Set the schema of this file.
   void SetSchema(ParquetColumn* root);
+  // Return the root of the schema.
   const ParquetColumn* Root() const;
+
+  // Flush the file to the filename given in the constructor.
   void Flush();
+  // Close the file.
   void Close();
   bool IsOK() { return ok_; }
 
   uint64_t NumberOfRecords() const;
+
+  // Calculates the number of rowgroups for the data in this Parquet
+  // file.  It isn't quite correct because it only looks at data, not
+  // the encoded R&D levels, but this will be rectified later.
+  uint32_t CalculateNumberOfRowGroups() const;
 
   uint64_t BytesForRecord(uint64_t record_index) const;
  private:

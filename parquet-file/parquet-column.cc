@@ -42,7 +42,7 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
   if (data_buffer.get() != nullptr) {
     data_buffer_.reset(data_buffer.get());
   } else {
-    data_buffer_.reset(new uint8_t[kDataBufferSize]);
+    data_buffer_.reset(new uint8_t[1024000]);
   }
   data_ptr_ = data_buffer_.get();
 }
@@ -103,23 +103,54 @@ string ParquetColumn::ToString() const {
     + "/" + to_string(bytes_per_datum_) + " bytes per datum";
 }
 
+void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
+                                                uint16_t repetition_level,
+                                                uint32_t n) {
+  CHECK_LT(repetition_level, max_repetition_level_) <<
+    "For adding repeated data in this column, use AddRepeatedData";
+  record_metadata.reserve(record_metadata.size() + n);
+  repetition_levels_.reserve(repetition_levels_.size() + n);
+  definition_levels_.reserve(definition_levels_.size() + n);
+  // TODO: check for overflow of multiply
+  num_records_ += n;
+  num_datums_ += n;
+  for (int i = 0; i < n; ++i) {
+    RecordMetadata r;
+    r.repetition_level_index_start = repetition_levels_.size();
+    r.definition_level_index_start = definition_levels_.size();
+    r.byte_begin = data_ptr_;
+
+    repetition_levels_.push_back(repetition_level);
+    definition_levels_.push_back(max_definition_level_);
+    memcpy(data_ptr_, buf, bytes_per_datum_);
+    data_ptr_ += bytes_per_datum_;
+
+    r.repetition_level_index_end = repetition_levels_.size();
+    r.definition_level_index_end = definition_levels_.size();
+    r.byte_end = data_ptr_;
+
+    record_metadata.push_back(r);
+  }
+}
+
 void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
                                uint32_t n) {
   CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
+  record_metadata.resize(record_metadata.size() + n);
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, num_bytes);
   num_records_ += n;
   num_datums_ += n;
   for (int i = 0; i < n; ++i) {
+    RecordMetadata r;
+    r.repetition_level_index_start = repetition_levels_.size();
+    r.definition_level_index_start = definition_levels_.size();
     repetition_levels_.push_back(repetition_level);
     definition_levels_.push_back(max_definition_level_);
-    RecordMetadata r;
-    r.repetition_level_index_start = repetition_levels_.size() - 1;
-    r.repetition_level_index_end = repetition_levels_.size() - 1;
-    r.definition_level_index_start = definition_levels_.size() - 1;
-    r.definition_level_index_end = definition_levels_.size() - 1;
+    r.repetition_level_index_end = repetition_levels_.size();
+    r.definition_level_index_end = definition_levels_.size();
     r.byte_begin = data_ptr_ + i;
     r.byte_end = r.byte_begin + bytes_per_datum_;
     record_metadata.push_back(r);
@@ -202,7 +233,7 @@ uint8_t ParquetColumn::BytesForDataType(Type::type dataType) {
   case Type::INT96:
     return 12;
   case Type::BYTE_ARRAY:
-    return VARIABLE_BYTES_PER_DATUM;
+    return 0;
   case Type::BOOLEAN:
   default:
     assert(0);

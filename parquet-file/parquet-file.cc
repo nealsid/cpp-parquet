@@ -99,6 +99,20 @@ uint64_t ParquetFile::BytesForRecord(uint64_t record_index) const {
   return record_size;
 }
 
+uint32_t ParquetFile::CalculateNumberOfRowGroups() const {
+  uint64_t byte_total = 0;
+  uint32_t row_groups = 0;
+  uint64_t number_of_records = NumberOfRecords();
+  for (int i = 0; i < number_of_records; ++i) {
+    byte_total += BytesForRecord(i);
+    if (byte_total > kMaxDataBytesPerRowGroup) {
+      ++row_groups;
+      byte_total = 0;
+    }
+  }
+  return row_groups;
+}
+
 void ParquetFile::Flush() {
   LOG_IF(FATAL, file_columns_.size() == 0) <<
     "No columns to flush";

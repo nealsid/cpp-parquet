@@ -23,10 +23,6 @@ using std::tuple;
 using std::vector;
 
 namespace parquet_file {
-const int kDataBufferSize = 1024000;
-const int kDataPageSize = 512000;  // pretty arbitrary.  this will be
-                                   // made configurable in the future.
-const int VARIABLE_BYTES_PER_DATUM = 0;
 
 struct RecordMetadata {
   uint32_t repetition_level_index_start;
@@ -81,6 +77,12 @@ class ParquetColumn {
 
   // Method that returns the number of bytes for a given Parquet data type
   static uint8_t BytesForDataType(Type::type dataType);
+
+  // Method that adds data to this column.  The datum is copied n
+  // times, each as it's own record.
+  void AddSingletonValueAsNRecords(void* buf,
+                                   uint16_t repetition_level,
+                                   uint32_t n);
 
   // Method that adds some data to this column.  Each datum in buf
   // is considered it's own record, if this field is repeated.
