@@ -40,6 +40,7 @@ class ParquetFile {
   void Close();
   bool IsOK() { return ok_; }
 
+  uint64_t BytesForRecord(uint64_t record_index) const;
  private:
   // Walker for the schema.  Parquet requires columns specified as a
   // vector that is the depth first preorder traversal of the schema,

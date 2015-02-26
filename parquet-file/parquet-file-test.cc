@@ -31,7 +31,7 @@ class ParquetFileTest : public ::testing::Test {
 
   virtual void SetUp() {
     output_filename_.assign(mktemp(template_));
-    LOG(INFO) << "Assigning filename: " << output_filename_;
+    VLOG(2) << "Assigning filename: " << output_filename_;
   }
 
   virtual void TearDown() {
@@ -120,21 +120,27 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
     two_column->AddRecords(data_value.get(), 0, 1);
   }
   output.Flush();
-  vector<RecordMetadata> &rs = getColumnRecordMetadata(one_column);
-  if (VLOG_IS_ON(2)) {
-    VLOG(2) << "\tRecord metadata size: " << rs.size();
-    VLOG(2) << "\tRIndexStart\tRIndexEnd\tDIndexStart\tDIndexEnd\tByteBegin\tByteEnd\tSize";
-    for (int i = 0; i < rs.size(); ++i) {
-      RecordMetadata r = rs[i];
-      VLOG(2) << "\t" << r.repetition_level_index_start
-              << "\t" << r.repetition_level_index_end
-              << "\t" << r.definition_level_index_start
-              << "\t" << r.definition_level_index_end
-              << "\t" << (void*)r.byte_begin
-              << "\t" << (void*)r.byte_end
-              << "\t" << r.byte_end - r.byte_begin;
-    }
+  for (int i = 0; i < num_values; ++i) {
+    uint64_t bytesForRecord = output.BytesForRecord(i);
+    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
+    CHECK_EQ(bytesForRecord, 2 * ParquetColumn::BytesForDataType(GetParam())) <<
+        "Record size was not correct";
   }
+  // vector<RecordMetadata> &rs = getColumnRecordMetadata(one_column);
+  // if (VLOG_IS_ON(2)) {
+  //   VLOG(2) << "\tRecord metadata size: " << rs.size();
+  //   VLOG(2) << "\tRIndexStart\tRIndexEnd\tDIndexStart\tDIndexEnd\tByteBegin\tByteEnd\tSize";
+  //   for (int i = 0; i < rs.size(); ++i) {
+  //     RecordMetadata r = rs[i];
+  //     VLOG(2) << "\t" << r.repetition_level_index_start
+  //             << "\t" << r.repetition_level_index_end
+  //             << "\t" << r.definition_level_index_start
+  //             << "\t" << r.definition_level_index_end
+  //             << "\t" << (void*)r.byte_begin
+  //             << "\t" << (void*)r.byte_end
+  //             << "\t" << r.byte_end - r.byte_begin;
+  //   }
+  // }
 }
 
 INSTANTIATE_TEST_CASE_P(ParquetFileBasicTest,

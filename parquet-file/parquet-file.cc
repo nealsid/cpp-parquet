@@ -80,9 +80,17 @@ void ParquetFile::NumberOfRecords(set<uint64_t>* column_record_counts) const {
   }
 }
 
-void ParquetFile::Flush() {
-  boost::shared_ptr<TFDTransport> stderr_transport_ptr(new TFDTransport(2));
+uint64_t ParquetFile::BytesForRecord(uint64_t record_index) const {
+  uint64_t record_size = 0;
+  for (auto column = file_columns_.begin() + 1;
+       column != file_columns_.end();
+       ++column) {
+    record_size += (*column)->recordSize(record_size);
+  }
+  return record_size;
+}
 
+void ParquetFile::Flush() {
   LOG_IF(FATAL, file_columns_.size() == 0) <<
     "No columns to flush";
   off_t current_offset = lseek(fd_, 0, SEEK_CUR);
