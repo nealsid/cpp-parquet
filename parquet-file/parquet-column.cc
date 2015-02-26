@@ -137,8 +137,8 @@ void ParquetColumn::AddRepeatedData(void *buf,
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
   RecordMetadata r;
-  r.repetition_level_index_start = repetition_levels_.size() - 1;
-  r.definition_level_index_start = definition_levels_.size() - 1;
+  r.repetition_level_index_start = repetition_levels_.size();
+  r.definition_level_index_start = definition_levels_.size();
   r.byte_begin = data_ptr_;
 
   data_ptr_ += num_bytes;
@@ -151,8 +151,8 @@ void ParquetColumn::AddRepeatedData(void *buf,
     repetition_levels_.push_back(max_repetition_level_);
     definition_levels_.push_back(max_definition_level_);
   }
-  r.repetition_level_index_end = repetition_levels_.size() - 1;
-  r.repetition_level_index_end = repetition_levels_.size() - 1;
+  r.repetition_level_index_end = repetition_levels_.size();
+  r.definition_level_index_end = definition_levels_.size();
   record_metadata.push_back(r);
 
   num_records_ += 1;
@@ -164,18 +164,20 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
                              uint32_t n) {
   LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::OPTIONAL) <<
     "Cannot add NULL to non-optional column: " << FullSchemaPath();
-  RecordMetadata r;
-  r.repetition_level_index_start = repetition_levels_.size() - 1;
-  r.definition_level_index_start = definition_levels_.size() - 1;
-  r.byte_begin = data_ptr_;
-  r.byte_end = data_ptr_;
   for (int i = 0; i < n; ++i) {
+    RecordMetadata r;
+    r.repetition_level_index_start = repetition_levels_.size();
+    r.definition_level_index_start = definition_levels_.size();
+    r.byte_begin = data_ptr_;
+    r.byte_end = data_ptr_;
+
     repetition_levels_.push_back(current_repetition_level);
     definition_levels_.push_back(current_definition_level);
+
+    r.repetition_level_index_end = repetition_levels_.size();
+    r.definition_level_index_end = definition_levels_.size();
+    record_metadata.push_back(r);
   }
-  r.repetition_level_index_end = repetition_levels_.size() - 1;
-  r.repetition_level_index_end = repetition_levels_.size() - 1;
-  record_metadata.push_back(r);
   num_records_ += n;
 }
 
