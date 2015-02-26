@@ -109,7 +109,7 @@ class ParquetColumn {
   size_t ColumnDataSizeInBytes();
 
   uint64_t recordSize(uint64_t record_index) const {
-    LOG_IF(FATAL, record_index > record_metadata.size()) <<
+    LOG_IF(FATAL, record_index >= record_metadata.size()) <<
         "record_index passed into recordSize was too large: " << record_index;
     const RecordMetadata& r = record_metadata[record_index];
     return r.byte_end - r.byte_begin;

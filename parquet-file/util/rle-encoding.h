@@ -147,7 +147,6 @@ class RleEncoder {
     int bytes_per_run = Ceil(bit_width * MAX_VALUES_PER_LITERAL_RUN, 8.0);
     int num_runs = Ceil(num_values, MAX_VALUES_PER_LITERAL_RUN);
     int literal_max_size = num_runs + num_runs * bytes_per_run;
-    printf("maxbufsize: %d %d %d %d %d\n", MAX_VALUES_PER_LITERAL_RUN, bit_width, bytes_per_run, num_runs, literal_max_size);
     int min_run_size = MinBufferSize(bit_width);
     return std::max(min_run_size, literal_max_size) + min_run_size;
   }

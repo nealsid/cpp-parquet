@@ -126,21 +126,6 @@ TEST_P(ParquetFileBasicRequiredTest, TwoRequiredColumns) {
     CHECK_EQ(bytesForRecord, 2 * ParquetColumn::BytesForDataType(GetParam())) <<
         "Record size was not correct";
   }
-  // vector<RecordMetadata> &rs = getColumnRecordMetadata(one_column);
-  // if (VLOG_IS_ON(2)) {
-  //   VLOG(2) << "\tRecord metadata size: " << rs.size();
-  //   VLOG(2) << "\tRIndexStart\tRIndexEnd\tDIndexStart\tDIndexEnd\tByteBegin\tByteEnd\tSize";
-  //   for (int i = 0; i < rs.size(); ++i) {
-  //     RecordMetadata r = rs[i];
-  //     VLOG(2) << "\t" << r.repetition_level_index_start
-  //             << "\t" << r.repetition_level_index_end
-  //             << "\t" << r.definition_level_index_start
-  //             << "\t" << r.definition_level_index_end
-  //             << "\t" << (void*)r.byte_begin
-  //             << "\t" << (void*)r.byte_end
-  //             << "\t" << r.byte_end - r.byte_begin;
-  //   }
-  // }
 }
 
 INSTANTIATE_TEST_CASE_P(ParquetFileBasicTest,
@@ -230,7 +215,7 @@ TEST_F(ParquetFileTest, TwoRequiredColumnsWithProvidedBuffer) {
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers
 // the other column has 1 individual integer in the record.
-TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
+TEST_F(ParquetFileTest, TwoColumnsOfIntsOneRepeated) {
   ParquetFile output(output_filename_);
 
   ParquetColumn* root_column =
@@ -259,6 +244,10 @@ TEST_F(ParquetFileTest, TwoColumnOfIntsOneRepeated) {
   repeated_column->AddRepeatedData(data, 0, 500);
   required_column->AddRecords(data, 0, 1);
   output.Flush();
+  uint64_t bytesForRecord = output.BytesForRecord(0);
+  VLOG(3) << "\tRecord 0 size: " << bytesForRecord;
+  CHECK_EQ(bytesForRecord, 2004) <<
+      "Record size was not correct";
 }
 
 // Tests that the output works with one column of array integers.  The
@@ -282,10 +271,18 @@ TEST_F(ParquetFileTest, OneColumn250Records) {
   for (int i = 0; i < 500; ++i) {
     data[i] = i;
   }
-  for (int i = 0; i < 250; i += 2) {
+  int num_records = 250;
+  for (int i = 0; i < num_records; i += 2) {
     repeated_column->AddRepeatedData(data + i, 0, 2);
   }
   output.Flush();
+  for (int i = 0; i < num_records / 2; ++i) {
+    uint64_t bytesForRecord = output.BytesForRecord(i);
+    VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
+    CHECK_EQ(bytesForRecord,
+             2 * ParquetColumn::BytesForDataType(parquet::Type::INT32)) <<
+        "Record size was not correct";
+  }
 }
 
 // Tests that the output works with two columns of integers, one array

@@ -85,7 +85,7 @@ uint64_t ParquetFile::BytesForRecord(uint64_t record_index) const {
   for (auto column = file_columns_.begin() + 1;
        column != file_columns_.end();
        ++column) {
-    record_size += (*column)->recordSize(record_size);
+    record_size += (*column)->recordSize(record_index);
   }
   return record_size;
 }
