@@ -126,13 +126,12 @@ void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
     default:
       CHECK(0) << "Singleton fill for unsupported byte width";
   }
+  repetition_levels_.insert(repetition_levels_.end(), n, repetition_level);
+  definition_levels_.insert(definition_levels_.end(), n, max_definition_level_);
   for (int i = 0; i < n; ++i) {
     AddRecordMetadata(rep_start + i, rep_start + i + 1,
                       def_start + i, def_start + i + 1,
                       data_ptr_, data_ptr_ + bytes_per_datum_);
-
-    repetition_levels_.push_back(repetition_level);
-    definition_levels_.push_back(max_definition_level_);
     data_ptr_ += bytes_per_datum_;
   }
 }

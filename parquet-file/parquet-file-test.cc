@@ -58,8 +58,9 @@ class ParquetFileTest : public ::testing::Test {
     for (int i = 0; i < number_of_records; ++i) {
       uint64_t bytesForRecord = output.BytesForRecord(i);
       VLOG(3) << "\tRecord " << i << " size: " << bytesForRecord;
-      if (record_size_index >= record_sizes.size()) {
-        record_size_index %= record_sizes.size();
+      CHECK_LE(record_size_index, record_sizes.size());
+      if (record_size_index == record_sizes.size()) {
+        record_size_index = 0;
       }
       CHECK_EQ(bytesForRecord, record_sizes[record_size_index]) <<
           "Record size was not correct";
@@ -236,7 +237,7 @@ class RowGroupTest : public ParquetFileTest {
 };
 // Tests that the row group calculcations are correct, but does not
 // actually flush and verify the file at this time.
-TEST_F(RowGroupTest, OneRequiredColumnsTwoGibibytesOfData) {
+TEST_F(RowGroupTest, OneRequiredColumnTwoGibibytesOfData) {
   ParquetFile output(output_filename_);
   boost::shared_array<uint8_t> buffer1(new uint8_t[2147483648]);
 
