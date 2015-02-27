@@ -86,6 +86,11 @@ class ParquetFileBasicRequiredTest :
   }
 
   uint8_t* SentinelValueForType() {
+    if (GetParam() == parquet::Type::BYTE_ARRAY) {
+      uint8_t* val_ptr = new uint8_t[512];
+      strncpy((char*)val_ptr, "This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!", 512);
+      return val_ptr;
+    }
     uint8_t* val_ptr = new uint8_t[ParquetColumn::BytesForDataType(GetParam())];
     switch(GetParam()) {
       case parquet::Type::INT32:
@@ -150,6 +155,39 @@ INSTANTIATE_TEST_CASE_P(ParquetFileBasicTest,
                                           parquet::Type::INT64,
                                           parquet::Type::DOUBLE,
                                           parquet::Type::FLOAT));
+
+TEST_F(ParquetFileTest, OneRequiredVariableByteArrayColumn) {
+  ParquetFile output(output_filename_);
+
+  parquet::Type::type column_type = parquet::Type::BYTE_ARRAY;
+  ParquetColumn* one_column =
+    new ParquetColumn({"AllInts"}, column_type,
+                      1, 1,
+                      FieldRepetitionType::REQUIRED,
+                      Encoding::PLAIN,
+                      CompressionCodec::UNCOMPRESSED);
+
+  ParquetColumn* root_column =
+    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
+  root_column->SetChildren({one_column});
+  output.SetSchema(root_column);
+  std::unique_ptr<char> data_value(new char[512]);
+  strncpy(data_value.get(), "This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!This is a 512-byte long string!!", 512);
+
+  int num_values = 500;
+  int string_length = strlen(data_value.get());
+  for (int i = 0; i < num_values; ++i) {
+    one_column->AddVariableLengthByteArray(data_value.get(), 0, string_length--);
+  }
+  output.Flush();
+  vector<uint64_t> expected_bytes_for_each_record;
+  for (int i = 0; i < num_values; ++i) {
+    expected_bytes_for_each_record.push_back(516 - i);
+  }
+  CheckRecordMetadata(output,
+                      num_values,
+                      expected_bytes_for_each_record);
+}
 
 // Tests that the output works with two columns of required integers.
 TEST_F(ParquetFileTest, TwoRequiredColumnsWithProvidedBuffer) {

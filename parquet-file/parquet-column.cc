@@ -218,6 +218,29 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
   }
 }
 
+// Adds binary data to this column as a single record.
+void ParquetColumn::AddVariableLengthByteArray(
+    void* buf,
+    uint16_t current_repetition_level,
+    uint32_t length) {
+  LOG_IF(FATAL, getType() != parquet::Type::BYTE_ARRAY) <<
+      "Column is not of type BYTE_ARRAY";
+  CHECK_GT(length, 0) << "Use AddNulls to add a null element";
+  size_t rep_start = repetition_levels_.size();
+  size_t def_start = definition_levels_.size();
+
+  repetition_levels_.push_back(current_repetition_level);
+  definition_levels_.push_back(max_definition_level_);
+
+  AddRecordMetadata(rep_start, rep_start + 1,
+                    def_start, def_start + 1,
+                    data_ptr_, data_ptr_ + 4 + length);
+  memcpy(data_ptr_, &length, 4);
+  data_ptr_ += 4;
+  memcpy(data_ptr_, buf, length);
+  data_ptr_ += length;
+}
+
 uint32_t ParquetColumn::NumRecords() const {
   return record_metadata.size();
 }
@@ -332,8 +355,11 @@ size_t ParquetColumn::ColumnDataSizeInBytes() {
     return bytes_per_datum_ * num_datums_;
   }
 
-  LOG(FATAL) << "Cannot calculate size for byte arrays yet";
-  return -1;
+  size_t record_size_accum = 0;
+  for (auto r : record_metadata) {
+    record_size_accum += (r.byte_end - r.byte_begin);
+  }
+  return record_size_accum;
 }
 
 void ParquetColumn::Flush(int fd,

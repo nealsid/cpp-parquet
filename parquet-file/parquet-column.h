@@ -87,10 +87,16 @@ class ParquetColumn {
   // Method that adds some data to this column.  Each datum in buf
   // is considered it's own record, if this field is repeated.
   void AddRecords(void* buf, uint16_t repetition_level, uint32_t n);
+
   // Adds repeated data to this column.  All data is considered part
   // of the same record.
   void AddRepeatedData(void *buf, uint16_t current_repetition_level,
                        uint32_t n);
+
+  // Adds binary data to this column as a single record.
+  void AddVariableLengthByteArray(void* buf, uint16_t current_repetition_level,
+                                  uint32_t length);
+
   // Add a NULL to this column.
   void AddNulls(uint16_t current_repetition_level,
                 uint16_t current_definition_level,
