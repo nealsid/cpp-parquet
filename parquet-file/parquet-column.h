@@ -25,10 +25,10 @@ using std::vector;
 namespace parquet_file {
 
 struct RecordMetadata {
-  uint32_t repetition_level_index_start;
-  uint32_t repetition_level_index_end;
-  uint32_t definition_level_index_start;
-  uint32_t definition_level_index_end;
+  size_t repetition_level_index_start;
+  size_t repetition_level_index_end;
+  size_t definition_level_index_start;
+  size_t definition_level_index_end;
   uint8_t* byte_begin;
   uint8_t* byte_end;
 };
@@ -132,6 +132,10 @@ class ParquetColumn {
   // definition)
   void EncodeRepetitionLevels(vector<uint8_t>* encoded_repetition_levels);
   void EncodeDefinitionLevels(vector<uint8_t>* encoded_definition_levels);
+
+  void AddRecordMetadata(size_t rep_level_start, size_t rep_level_end,
+                         size_t def_level_start, size_t def_level_end,
+                         uint8_t* start, uint8_t* end);
 
   // The name of the column as a vector of strings from the root to
   // the current node.

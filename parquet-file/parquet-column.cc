@@ -114,46 +114,64 @@ void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
   // TODO: check for overflow of multiply
   num_records_ += n;
   num_datums_ += n;
+  size_t rep_start = repetition_levels_.size();
+  size_t def_start = definition_levels_.size();
+  switch(bytes_per_datum_) {
+    case 4:
+      memset_pattern4(data_ptr_, buf, bytes_per_datum_);
+      break;
+    case 8:
+      memset_pattern8(data_ptr_, buf, bytes_per_datum_);
+      break;
+    case 16:
+      memset_pattern16(data_ptr_, buf, bytes_per_datum_);
+      break;
+    default:
+      CHECK(0) << "Singleton fill for unsupported byte width";
+  }
   for (int i = 0; i < n; ++i) {
-    RecordMetadata r;
-    r.repetition_level_index_start = repetition_levels_.size();
-    r.definition_level_index_start = definition_levels_.size();
-    r.byte_begin = data_ptr_;
+    AddRecordMetadata(rep_start + i, rep_start + i + 1,
+                      def_start + i, def_start + i + 1,
+                      data_ptr_, data_ptr_ + bytes_per_datum_);
 
     repetition_levels_.push_back(repetition_level);
     definition_levels_.push_back(max_definition_level_);
-    memcpy(data_ptr_, buf, bytes_per_datum_);
     data_ptr_ += bytes_per_datum_;
-
-    r.repetition_level_index_end = repetition_levels_.size();
-    r.definition_level_index_end = definition_levels_.size();
-    r.byte_end = data_ptr_;
-
-    record_metadata.push_back(r);
   }
+}
+
+void ParquetColumn::AddRecordMetadata(size_t rep_level_start, size_t rep_level_end,
+                                      size_t def_level_start, size_t def_level_end,
+                                      uint8_t* start, uint8_t* end) {
+  RecordMetadata r;
+  r.repetition_level_index_start = rep_level_start;
+  r.repetition_level_index_end = rep_level_end;
+  r.definition_level_index_start = def_level_start;
+  r.definition_level_index_end = def_level_end;
+  r.byte_begin = start;
+  r.byte_end = end;
+  record_metadata.push_back(r);
 }
 
 void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
                                uint32_t n) {
   CHECK_LT(repetition_level, max_repetition_level_) <<
     "For adding repeated data in this column, use AddRepeatedData";
-  record_metadata.resize(record_metadata.size() + n);
+  record_metadata.reserve(record_metadata.size() + n);
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, num_bytes);
   num_records_ += n;
   num_datums_ += n;
+  size_t rep_start = repetition_levels_.size();
+  size_t def_start = definition_levels_.size();
+
   for (int i = 0; i < n; ++i) {
-    RecordMetadata r;
-    r.repetition_level_index_start = repetition_levels_.size();
-    r.definition_level_index_start = definition_levels_.size();
     repetition_levels_.push_back(repetition_level);
     definition_levels_.push_back(max_definition_level_);
-    r.repetition_level_index_end = repetition_levels_.size();
-    r.definition_level_index_end = definition_levels_.size();
-    r.byte_begin = data_ptr_ + i;
-    r.byte_end = r.byte_begin + bytes_per_datum_;
-    record_metadata.push_back(r);
+    AddRecordMetadata(rep_start + i, rep_start + i + 1,
+                      def_start + i, def_start + i + 1,
+                      data_ptr_, data_ptr_ + bytes_per_datum_);
   }
   data_ptr_ += num_bytes;
 }
@@ -167,14 +185,10 @@ void ParquetColumn::AddRepeatedData(void *buf,
     "Cannot add repeated data to a non-repeated column: " << FullSchemaPath();
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, n * bytes_per_datum_);
-  RecordMetadata r;
-  r.repetition_level_index_start = repetition_levels_.size();
-  r.definition_level_index_start = definition_levels_.size();
-  r.byte_begin = data_ptr_;
 
-  data_ptr_ += num_bytes;
+  size_t rep_start = repetition_levels_.size();
+  size_t def_start = definition_levels_.size();
 
-  r.byte_end = data_ptr_;
   repetition_levels_.push_back(current_repetition_level);
   definition_levels_.push_back(max_definition_level_);
 
@@ -182,9 +196,12 @@ void ParquetColumn::AddRepeatedData(void *buf,
     repetition_levels_.push_back(max_repetition_level_);
     definition_levels_.push_back(max_definition_level_);
   }
-  r.repetition_level_index_end = repetition_levels_.size();
-  r.definition_level_index_end = definition_levels_.size();
-  record_metadata.push_back(r);
+
+  AddRecordMetadata(rep_start, rep_start + n,
+                    def_start, def_start + n,
+                    data_ptr_, data_ptr_ + num_bytes);
+
+  data_ptr_ += num_bytes;
 
   num_records_ += 1;
   num_datums_ += n;
@@ -195,19 +212,16 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
                              uint32_t n) {
   LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::OPTIONAL) <<
     "Cannot add NULL to non-optional column: " << FullSchemaPath();
+  record_metadata.reserve(record_metadata.size() + n);
+  size_t rep_start = repetition_levels_.size();
+  size_t def_start = definition_levels_.size();
   for (int i = 0; i < n; ++i) {
-    RecordMetadata r;
-    r.repetition_level_index_start = repetition_levels_.size();
-    r.definition_level_index_start = definition_levels_.size();
-    r.byte_begin = data_ptr_;
-    r.byte_end = data_ptr_;
-
     repetition_levels_.push_back(current_repetition_level);
     definition_levels_.push_back(current_definition_level);
 
-    r.repetition_level_index_end = repetition_levels_.size();
-    r.definition_level_index_end = definition_levels_.size();
-    record_metadata.push_back(r);
+    AddRecordMetadata(rep_start + i, rep_start + i + 1,
+                      def_start + i, def_start + i + 1,
+                      data_ptr_, data_ptr_);
   }
   num_records_ += n;
 }
