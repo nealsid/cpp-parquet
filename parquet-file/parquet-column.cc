@@ -30,7 +30,6 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
     max_repetition_level_(max_repetition_level),
     encoding_(encoding),
     data_type_(data_type),
-    num_records_(0),
     num_datums_(0),
     compression_codec_(compression_codec),
     // I'm purposely using the constructor parameter in the next line,
@@ -51,7 +50,6 @@ ParquetColumn::ParquetColumn(const vector<string>& column_name,
                              FieldRepetitionType::type repetition_type)
   : column_name_(column_name),
     repetition_type_(repetition_type),
-    num_records_(0),
     num_datums_(0),
     data_type_(parquet::Type::BOOLEAN),
     column_write_offset_(-1L) {
@@ -94,13 +92,13 @@ string ParquetColumn::Name() const {
 }
 
 string ParquetColumn::ToString() const {
-  return this->FullSchemaPath() + "/" +
-    parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->getFieldRepetitionType())
-    + "/" + to_string(Children().size()) + " children"
-    + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->getType())
-    + "/" + to_string(num_records_) + " records"
-    + "/" + to_string(num_datums_) + " pieces of data"
-    + "/" + to_string(bytes_per_datum_) + " bytes per datum";
+  return this->FullSchemaPath() + "/"
+      + parquet::_FieldRepetitionType_VALUES_TO_NAMES.at(this->getFieldRepetitionType())
+      + "/" + to_string(Children().size()) + " children"
+      + "/" + parquet::_Type_VALUES_TO_NAMES.at(this->getType())
+      + "/" + to_string(record_metadata.size()) + " records"
+      + "/" + to_string(num_datums_) + " pieces of data"
+      + "/" + to_string(bytes_per_datum_) + " bytes per datum";
 }
 
 void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
@@ -112,7 +110,6 @@ void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
   repetition_levels_.reserve(repetition_levels_.size() + n);
   definition_levels_.reserve(definition_levels_.size() + n);
   // TODO: check for overflow of multiply
-  num_records_ += n;
   num_datums_ += n;
   size_t rep_start = repetition_levels_.size();
   size_t def_start = definition_levels_.size();
@@ -161,7 +158,6 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
   // TODO: check for overflow of multiply
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, num_bytes);
-  num_records_ += n;
   num_datums_ += n;
   size_t rep_start = repetition_levels_.size();
   size_t def_start = definition_levels_.size();
@@ -202,8 +198,6 @@ void ParquetColumn::AddRepeatedData(void *buf,
                     data_ptr_, data_ptr_ + num_bytes);
 
   data_ptr_ += num_bytes;
-
-  num_records_ += 1;
   num_datums_ += n;
 }
 
@@ -223,11 +217,10 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
                       def_start + i, def_start + i + 1,
                       data_ptr_, data_ptr_);
   }
-  num_records_ += n;
 }
 
 uint32_t ParquetColumn::NumRecords() const {
-  return num_records_;
+  return record_metadata.size();
 }
 
 uint32_t ParquetColumn::NumDatums() const {
@@ -357,7 +350,7 @@ void ParquetColumn::Flush(int fd,
   VLOG(2) << "Inside flush for " << FullSchemaPath();
   size_t column_data_size = ColumnDataSizeInBytes();
   VLOG(2) << "\tData size: " << column_data_size << " bytes.";
-  VLOG(2) << "\tNumber of records for this flush: " <<  num_records_;
+  VLOG(2) << "\tNumber of records for this flush: " <<  NumRecords();
   VLOG(2) << "\tFile offset: " << column_write_offset_;
   vector<uint8_t> encoded_repetition_levels, encoded_definition_levels;
   EncodeRepetitionLevels(&encoded_repetition_levels);

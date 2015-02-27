@@ -155,13 +155,11 @@ class ParquetColumn {
   // Bookkeeping
   // How many did the page header + R&D levels + data take up?
   uint64_t uncompressed_bytes_;
-  // how many records are in this column?  This includes
-  // NULLs.  Repeated fields are counted as 1 record.
-  uint32_t num_records_;
+
   // How many pieces of data are in this column.  For this field, repeated
   // data is not counted as one record.  So if you had an array field, and
   // an individual record contained [1,2,3,4,5],  num_datums_ would 5, and
-  // num_records_ would be 1.
+  // the number of records would be 1.
   uint32_t num_datums_;
   // The number of bytes each instance of the datatype stored in this
   // column takes.
