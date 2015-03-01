@@ -443,11 +443,8 @@ void ParquetColumn::FlushLevels(int fd, const vector<uint8_t>& levels_vector) {
   uint32_t num_elements = levels_vector.size();
   write(fd, &num_elements, 4);
   VLOG(3) << "\tOffset after writing size: " << lseek(fd, 0, SEEK_CUR);
-  size_t bytes_written = 0;
-  for (int i = 0; i < num_elements; ++i) {
-    bytes_written +=
-        write(fd, &(levels_vector[i]), 1);
-  }
+  size_t bytes_written = write(fd, levels_vector.data(), num_elements);
+
   if (bytes_written != num_elements) {
     LOG(WARNING) << "Only " << bytes_written << " of "
                  << num_elements

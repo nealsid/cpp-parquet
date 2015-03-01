@@ -18,8 +18,9 @@ int main(int argc, char* argv[]) {
   AvroSchemaWalker walker(argv[1]);
   AvroSchemaToParquetSchemaConverter* converter = new AvroSchemaToParquetSchemaConverter();
   walker.WalkSchema(converter);
-  ParquetColumn* root = converter->Root();
+
   ParquetFile* parquet_file = new ParquetFile("test.parquet");
-  parquet_file->SetSchema(root);
+  parquet_file->SetSchema(converter->Root());
+
   parquet_file->Flush();
 }
