@@ -185,12 +185,9 @@ void ParquetColumn::AddRepeatedData(void *buf,
   size_t def_start = definition_levels_.size();
 
   repetition_levels_.push_back(current_repetition_level);
-  definition_levels_.push_back(max_definition_level_);
+  repetition_levels_.insert(repetition_levels_.end(), n - 1, max_repetition_level_);
 
-  for (int i = 1; i < n; ++i) {
-    repetition_levels_.push_back(max_repetition_level_);
-    definition_levels_.push_back(max_definition_level_);
-  }
+  definition_levels_.insert(definition_levels_.end(), n, max_definition_level_);
 
   AddRecordMetadata(rep_start, rep_start + n,
                     def_start, def_start + n,
@@ -424,7 +421,6 @@ void ParquetColumn::Flush(int fd,
   }
 
   VLOG(2) << "\tData size: " << column_data_size;
-  size_t total_written = 0;
   ssize_t written = write(fd, data_buffer_.get(),
                           column_data_size);
   if (written != column_data_size) {
@@ -433,8 +429,7 @@ void ParquetColumn::Flush(int fd,
     }
     LOG(FATAL) << "Did not write correct number of bytes: " << written << "/" << column_data_size;
   }
-  total_written = written;
-  VLOG(2) << "\tData bytes written: " << total_written;
+  VLOG(2) << "\tData bytes written: " << written;
   VLOG(2) << "\tFinal offset after write: " << lseek(fd, 0, SEEK_CUR);
 }
 
