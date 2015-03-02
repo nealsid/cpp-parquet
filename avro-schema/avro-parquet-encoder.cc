@@ -1,16 +1,24 @@
 #include "avro-parquet-encoder.h"
 #include "avro-schema/avro-schema-walker.h"
+#include "parquet-file/parquet-file.h"
 
 using parquet_file::AvroSchemaWalker;
 using parquet_file::AvroParquetEncoder;
+using parquet_file::ParquetFile;
 
 namespace parquet_file {
 
 AvroParquetEncoder::AvroParquetEncoder(std::string json_schema_filename) {
   avro_schema_walker_.reset(new AvroSchemaWalker(json_schema_filename));
+  std::unique_ptr<AvroSchemaToParquetSchemaConverter> converter(new AvroSchemaToParquetSchemaConverter());
+  avro_schema_walker_->WalkSchema(converter.get());
+  parquet_file_.reset(new ParquetFile("test.parquet"));
+  parquet_file_->SetSchema(converter->Root());
+
 }
 
 AvroParquetEncoder::~AvroParquetEncoder() {
+  parquet_file_->Flush();
 }
 
 void AvroParquetEncoder::init(avro::OutputStream& os) {

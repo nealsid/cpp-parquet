@@ -6,14 +6,17 @@
 namespace parquet_file {
 
 class AvroSchemaWalker;
+class ParquetFile;
 
 class AvroParquetEncoder : public avro::Encoder {
  public:
   AvroParquetEncoder(std::string json_schema_filename);
  private:
   std::unique_ptr<AvroSchemaWalker> avro_schema_walker_;
-
+  std::unique_ptr<ParquetFile> parquet_file_;
  public:
+  // I'm putting these in a separate public section because they're
+  // just inherited methods from the avro::Encoder class.
   ~AvroParquetEncoder();
   /// All future encodings will go to os, which should be valid until
   /// it is reset with another call to init() or the encoder is
