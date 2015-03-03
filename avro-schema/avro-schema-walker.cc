@@ -34,6 +34,13 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
 	  << node->leaves() << ". Name count: " << node->names() << ". Type: "
 	  << node->type();
   void* parent_data = callback->AtNode(node, *names, union_with_null, level, data_for_children);
+  // Although the current node might a union with a null, it doesn't
+  // mean our children are optional.  Put another way, this node can
+  // be optional, but if this node is present defined, all subfields
+  // may still be required, so by setting union_with_null back to
+  // false, we're preventing a union_with_null from propagating down
+  // the subtree of the schema.
+  union_with_null = false;
   for (int i = 0; i < node->leaves(); ++i) {
     // For some reason the leaf nodes in an Avro Schema tree are not
     // very useful - they only contain type information, but not the
@@ -56,6 +63,7 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
         continue;
       }
     }
+
     if (node->names() > i) {
       names->push_back(node->nameAt(i));
       VLOG(2) << "Name of leaf " << i << ": " << node->nameAt(i);
