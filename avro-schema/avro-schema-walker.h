@@ -21,7 +21,8 @@ namespace parquet_file {
 class AvroSchemaCallback {
  public:
   virtual void* AtNode(const NodePtr& node, const vector<string>& names,
-                      int level, void* parent_data) = 0;
+                       bool union_with_null,
+                       int level, void* parent_data) = 0;
 };
 
 class AvroSchemaWalker {
@@ -29,7 +30,8 @@ class AvroSchemaWalker {
   explicit AvroSchemaWalker(const string& json_file);
   void WalkSchema(AvroSchemaCallback* callback) const;
  private:
-  void StartWalk(const NodePtr node, vector<string>* name,
+  void StartWalk(const NodePtr node, bool union_with_null,
+                 vector<string>* name,
                  int level, AvroSchemaCallback* callback,
                  void* parent_data) const;
   avro::ValidSchema schema_;
@@ -38,12 +40,16 @@ class AvroSchemaWalker {
 class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
  public:
   AvroSchemaToParquetSchemaConverter();
-  void* AtNode(const NodePtr& node, const vector<string>& names, int level,
+  void* AtNode(const NodePtr& node,
+               const vector<string>& names,
+               bool union_with_null,
+               int level,
                void* parent_data);
 
   ParquetColumn* Root();
  private:
   ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node,
+                                            bool union_with_null,
                                             const vector<string>& names,
                                             int level) const;
   ParquetColumn* root_;
