@@ -28,11 +28,11 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
                                  bool union_with_null,
                                  vector<string>* names,
                                  int level,
-				 AvroSchemaCallback* callback,
-				 void* data_for_children) const {
+                                 AvroSchemaCallback* callback,
+                                 void* data_for_children) const {
   VLOG(2) << "Inside StartWalk. Level: " << level << ". Leaf count: "
-	  << node->leaves() << ". Name count: " << node->names() << ". Type: "
-	  << node->type();
+          << node->leaves() << ". Name count: " << node->names() << ". Type: "
+          << node->type();
   void* parent_data = callback->AtNode(node, *names, union_with_null, level, data_for_children);
   // Although the current node might a union with a null, it doesn't
   // mean our children are optional.  Put another way, this node can
@@ -41,7 +41,20 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
   // false, we're preventing a union_with_null from propagating down
   // the subtree of the schema.
   union_with_null = false;
+  VLOG(2) << "logging names";
+  for (int j = 0; j < node->names() ; ++j) {
+    VLOG(2) << "\t" << node->nameAt(j);
+  }
   for (int i = 0; i < node->leaves(); ++i) {
+
+    bool pushed = false;
+    if (node->names() > i) {
+      string name_for_leaf = node->nameAt(i);
+      names->push_back(name_for_leaf);
+      VLOG(2) << "Name of leaf " << i << ": " << name_for_leaf;
+      pushed = true;
+    }
+
     // For some reason the leaf nodes in an Avro Schema tree are not
     // very useful - they only contain type information, but not the
     // name.  So we read the child name from the parent and use that
@@ -49,31 +62,29 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
     const NodePtr& current_leaf = node->leafAt(i);
     if (current_leaf->type() == avro::AVRO_UNION) {
       // Search for a "null" so that we can make this column optional in the Parquet schema.
+      int null_leaf_index = -1;
       for (int j = 0; j < current_leaf->leaves(); ++j) {
         if (current_leaf->leafAt(j)->type() == avro::AVRO_NULL) {
-          union_with_null = true;
+          null_leaf_index = j;
           break;
         }
       }
-      if (!union_with_null || current_leaf->leaves() != 2) {
-        LOG(FATAL) << "Parquet does not support unions of multiple non-null " <<
-            " subtypes without defining multiple columns for each subtype of " <<
-            " the union. (https://issues.apache.org/jira/browse/PARQUET-155)";
-      } else {
-        continue;
-      }
-    }
-
-    if (node->names() > i) {
-      names->push_back(node->nameAt(i));
-      VLOG(2) << "Name of leaf " << i << ": " << node->nameAt(i);
+      CHECK(null_leaf_index != -1 && current_leaf->leaves() == 2) <<
+          "Parquet does not support unions of multiple non-null " <<
+          " subtypes without defining multiple columns for each subtype of " <<
+          " the union. (https://issues.apache.org/jira/browse/PARQUET-155)";
+      // We do 1 - null_leaf_index to pick the opposite node of the one that's the
+      // null node.
+      VLOG(2) << "\twalking down non-null subtree of union node";
+      StartWalk(current_leaf->leafAt(1 - null_leaf_index),
+                true, names, level + 1, callback, parent_data);
+    } else {
       StartWalk(node->leafAt(i), union_with_null, names, level + 1,
                 callback, parent_data);
+    }
+    if (pushed) {
       names->pop_back();
     }
-    // } else {
-    //   VLOG(2) << "Skipping non-named node " << i;
-    // }
   }
 }
 
