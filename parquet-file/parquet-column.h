@@ -52,7 +52,7 @@ class ParquetColumn {
                 FieldRepetitionType::type repetition_type,
                 Encoding::type encoding,
                 CompressionCodec::type compression_codec,
-                boost::shared_array<uint8_t> data_buffer = boost::shared_array<uint8_t>((uint8_t*)0),
+                boost::shared_array<uint8_t> data_buffer = boost::shared_array<uint8_t>((uint8_t*)nullptr),
                 uint32_t data_buffer_size_in_bytes = 0);
 
   // Constructor for a container column.
@@ -64,11 +64,17 @@ class ParquetColumn {
   void AddChild(ParquetColumn* child);
   const vector<ParquetColumn*>& Children() const;
 
-  // Accessors for the reptition type, encoding, type, and name.
+  // Accessors & setters for the reptition type, encoding, type, and name.
+  void setFieldRepetitionType(FieldRepetitionType::type repetition_type);
   FieldRepetitionType::type getFieldRepetitionType() const;
+
   Encoding::type getEncoding() const;
+
+  void setType(Type::type);
   Type::type getType() const;
+
   CompressionCodec::type getCompressionCodec() const;
+
   string Name() const;
 
   // A '.'-joined string of the path components (i.e. the names of

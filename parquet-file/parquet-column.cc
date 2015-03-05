@@ -63,8 +63,22 @@ FieldRepetitionType::type ParquetColumn::getFieldRepetitionType() const {
   return repetition_type_;
 }
 
+void ParquetColumn::setFieldRepetitionType(FieldRepetitionType::type repetition_type) {
+  if (NumRecords() > 0) {
+    LOG(WARNING) << "Changing column type after records added; are you sure?";
+  }
+  repetition_type_ = repetition_type;
+}
+
 Encoding::type ParquetColumn::getEncoding() const {
   return encoding_;
+}
+
+void ParquetColumn::setType(Type::type type) {
+  if (NumRecords() > 0) {
+    LOG(WARNING) << "Changing column type after records added; are you sure?";
+  }
+  data_type_ = type;
 }
 
 Type::type ParquetColumn::getType() const {
@@ -261,6 +275,8 @@ uint8_t ParquetColumn::BytesForDataType(Type::type dataType) {
   case Type::BYTE_ARRAY:
     return 0;
   case Type::BOOLEAN:
+  // TODO(nealsid): fix this
+    return 1;
   default:
     assert(0);
   }
