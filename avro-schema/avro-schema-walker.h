@@ -63,9 +63,12 @@ class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
 
   ParquetColumn* Root();
  private:
+  // Helper method to convert an AVRO NodePtr to a ParquetColumn.
+  // Requires that the NodePtr is of a primitive AVRO type.
   ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node,
                                             const vector<string>& names,
                                             int level) const;
+  std::map<string, ParquetColumn*> name_to_column_;
   ParquetColumn* root_;
 };
 

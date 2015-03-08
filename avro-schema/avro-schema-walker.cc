@@ -40,8 +40,9 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
   }
 
   if (data_for_children == nullptr) {
-    // The callback can return NULL, in which case we cascade the
-    // current data_from_parent to the next level of the Avro tree.
+    // The callback can set child data to NULL, in which case we
+    // cascade the current data_from_parent to the next level of the
+    // Avro tree.
     data_for_children = data_from_parent;
   }
 
@@ -74,43 +75,51 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
                                                 int level,
                                                 void* data_from_parent,
                                                 void** data_for_children) {
-  // This is a very ugly hack.  Normally, Parquet requires fields to
-  // have a dot-joined name of the schema path in the
-  // metadata. I.e. "a.b.c".  This is accomplished by the "names"
-  // parameter, which is a vector of strings that is appended to as
-  // the depth-first-traversal of the schema happens.  As a special
-  // case, this schema path name should NOT contain the outer message
-  // name.  However, if we don't embed the outer message name as the
-  // root column's name, tools like parquet-schema (or presumably,
-  // anything that reads parquet), won't be able to know the name of
-  // the message contained in the file, which isn't horrible...but it
-  // is a regression compared to other tools.  So we do this special
-  // hack to make sure the root column has the outer message name, but
-  // also ensure that the outer message name is not part of the schema
-  // path of any fields further down in the schema tree.
   ParquetColumn* column = nullptr;
   CHECK_NOTNULL(data_for_children);
-  if (level == 0 && data_from_parent == nullptr && names.size() == 0) {
-    LOG_IF(FATAL, node->type() != avro::AVRO_RECORD)
-      << "Root node was not AVRO_RECORD";
-    vector<string> outer_message_name = {node->name().fullname()};
-    column = AvroNodePtrToParquetColumn(node, outer_message_name, level);
-    LOG_IF(WARNING, root_ != nullptr) << "Root being overwritten";
-    root_ = column;
+  if (node->type() == avro::AVRO_RECORD) {
+    if (level == 0 && data_from_parent == nullptr && names.size() == 0) {
+      VLOG(3) << "Assigning root";
+      // This is a very ugly hack.  Normally, Parquet requires fields to
+      // have a dot-joined name of the schema path in the
+      // metadata. I.e. "a.b.c".  This is accomplished by the "names"
+      // parameter, which is a vector of strings that is appended to as
+      // the depth-first-traversal of the schema happens.  As a special
+      // case, this schema path name should NOT contain the outer message
+      // name.  However, if we don't embed the outer message name as the
+      // root column's name, tools like parquet-schema (or presumably,
+      // anything that reads parquet), won't be able to know the name of
+      // the message contained in the file, which isn't horrible...but it
+      // is a regression compared to other tools.  So we do this special
+      // hack to make sure the root column has the outer message name, but
+      // also ensure that the outer message name is not part of the schema
+      // path of any fields further down in the schema tree.
+      vector<string> outer_message_name = {node->name().fullname()};
+      column = AvroNodePtrToParquetColumn(node, outer_message_name, level);
+      LOG_IF(WARNING, root_ != nullptr) << "Root being overwritten";
+      root_ = column;
+    } else {
+      // Nested records are handled specially - they are part of the
+      // parquet schema in the order that they're defined in the AVRO
+      // file, AND they're part of the parquet schema at the place where
+      // they're referenced in the AVRO file via AVRO_SYMBOLIC node types.
+      column = AvroNodePtrToParquetColumn(node, names, level);
+    }
     *data_for_children = column;
     VLOG(3) << column->ToString();
     return true;
   }
 
   // If we're processing a union node, we do the following:
-  // 1) Make sure it's the union of 1 NULL and 1 non-null type, and
-  // recurse down the non-null node.
-  // 2) We return false so that the schema walker doesn't recurse down
-  // again.
-  // 3) We call ourselves directly on the non-null child.
-
+  // 1) Make sure it's the union of 1 NULL and 1 non-null type
+  // 2) We return false so that the schema walker doesn't recurse down.
+  // 3) We ourselves recurse directly on the non-null child.(this
+  // should probably be fixed as it's not very elegant. perhaps we can
+  // return a post-child traversal callback function instead of
+  // returning false and recursing ourselves)
   if (node->type() == avro::AVRO_UNION) {
-    // Search for a "null" so that we can make this column optional in the Parquet schema.
+    // Search for a "null" so that we can make this column optional in
+    // the Parquet schema.
     int null_leaf_index = -1;
     for (int j = 0; j < node->leaves(); ++j) {
       if (node->leafAt(j)->type() == avro::AVRO_NULL) {
@@ -137,6 +146,7 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
         "Parquet does not support optional arrays or other non-primitive "
         "types (the equivalent is an array with 0 elements) (type: " << non_null_leaf->type() << ")";
 
+    VLOG(2) << "Non-null leaf type: " << non_null_leaf->type();
     AtNode(non_null_leaf, names, level + 1,
            data_from_parent, data_for_children);
     ((ParquetColumn*) (*data_for_children))->setFieldRepetitionType(
@@ -169,30 +179,20 @@ AvroSchemaToParquetSchemaConverter::AvroNodePtrToParquetColumn(
     const vector<string>& names,
     int level) const {
   avro::Type avro_type = node->type();
+  CHECK(avro::isPrimitive(avro_type) || avro_type == avro::AVRO_RECORD)
+      << "Non-primitive types not supported in this method: " << avro_type;
   ParquetColumn* c = nullptr;
-  if (node->type() == avro::AVRO_ARRAY) {
-    CHECK(node->leaves() == 1);
-    CHECK(node->leafAt(0)->names() == 0);
-    CHECK(node->leafAt(0)->type() == avro::AVRO_INT);
-    c = new ParquetColumn(
-        names, parquet::Type::INT32,
-        level, level,
-			  FieldRepetitionType::REPEATED,
-			  Encoding::PLAIN,
-			  CompressionCodec::UNCOMPRESSED);
-  } else {
-    auto type_lookup = type_mapping.find(node->type());
-    if (type_lookup == type_mapping.end()) {
-      LOG(FATAL) << "Unsupported column data type: " << node->type();
-    }
-    parquet::Type::type column_data_type = (*type_lookup).second;
-    c = new ParquetColumn(
-        names, column_data_type,
-        level, level,
-        FieldRepetitionType::REQUIRED,
-        Encoding::PLAIN,
-        CompressionCodec::UNCOMPRESSED);
+  auto type_lookup = type_mapping.find(node->type());
+  if (type_lookup == type_mapping.end()) {
+    LOG(FATAL) << "Unsupported column data type: " << node->type();
   }
+  parquet::Type::type column_data_type = (*type_lookup).second;
+  c = new ParquetColumn(
+      names, column_data_type,
+      level, level,
+      FieldRepetitionType::REQUIRED,
+      Encoding::PLAIN,
+      CompressionCodec::UNCOMPRESSED);
 
   return c;
 }
