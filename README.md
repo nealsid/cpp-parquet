@@ -1,21 +1,15 @@
 # cpp-parquet
 
-February 3rd, 2015
+March 7th, 2015
 
 You will need the following dependencies pre-installed:
 
 * Thrift (which requires Boost)
 * Avro (just the C++ API)
 * CMake 3.0.2
-
-Also, Google Test must still be fetched manually due to some CMake complexity with external deps that I haven't figured out yet.
 From the root of this repo's clone on your machine:
 
 ```sh
-$ mkdir -p third_party/googletest/src
-$ cd third_party/googletest/src
-$ svn co http://googletest.googlecode.com/svn/tags/release-1.7.0 googletest
-$ cd ../../../
 $ cmake .
 ```
 

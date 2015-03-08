@@ -11,6 +11,8 @@ ADD_CUSTOM_COMMAND(
 ExternalProject_Get_Property(googletest SOURCE_DIR)
 INCLUDE_DIRECTORIES(${SOURCE_DIR} ${SOURCE_DIR}/include)
 
+SET_SOURCE_FILES_PROPERTIES(${SOURCE_DIR}/src/gtest-all.cc PROPERTIES GENERATED 1)
+
 ADD_EXECUTABLE(parquet-file-test parquet-file-test.cc ${SOURCE_DIR}/src/gtest-all.cc)
 ADD_DEPENDENCIES(parquet-file-test googletest)
 set_property(TARGET parquet-file-test PROPERTY DEPENDS googletest)

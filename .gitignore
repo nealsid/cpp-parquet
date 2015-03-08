@@ -12,7 +12,11 @@ install_manifest.txt
 test.parquet
 
 avro-schema-walker-example
+avro-parquet-encoder
 cppparquet
 parquet-file-test
 
 *-golden
+
+*.dSYM
+\#*\#

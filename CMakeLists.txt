@@ -9,6 +9,7 @@ PROJECT(cpp-parquet-proj)
 ADD_DEFINITIONS(-std=c++11)
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+
 # External projects for parquet-format and thrift
 INCLUDE(ExternalProject)
 INCLUDE(ParquetFormatCMakeLists)
