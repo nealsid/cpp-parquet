@@ -129,13 +129,10 @@ void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
   size_t def_start = definition_levels_.size();
   switch(bytes_per_datum_) {
     case 4:
-      memset_pattern4(data_ptr_, buf, bytes_per_datum_);
+      std::fill((uint32_t*)data_ptr_, (uint32_t*)(data_ptr_ + (bytes_per_datum_ * n)), *(uint32_t*)buf);
       break;
     case 8:
-      memset_pattern8(data_ptr_, buf, bytes_per_datum_);
-      break;
-    case 16:
-      memset_pattern16(data_ptr_, buf, bytes_per_datum_);
+      std::fill((uint64_t*)data_ptr_, (uint64_t*)(data_ptr_ + (bytes_per_datum_ * n)), *(uint64_t*)buf);
       break;
     default:
       CHECK(0) << "Singleton fill for unsupported byte width";

@@ -7,10 +7,12 @@ You will need the following dependencies pre-installed:
 * Thrift (which requires Boost)
 * Avro (just the C++ API)
 * CMake 3.0.2
+
 From the root of this repo's clone on your machine:
 
 ```sh
 $ cmake .
+$ make
 ```
 
 ## Examples
