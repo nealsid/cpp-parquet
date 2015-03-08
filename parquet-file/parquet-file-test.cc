@@ -273,36 +273,36 @@ TEST_F(ParquetFileTest, TwoRequiredColumnsWithProvidedBuffer) {
 class RowGroupTest : public ParquetFileTest {
 
 };
-// Tests that the row group calculcations are correct, but does not
-// actually flush and verify the file at this time.
-TEST_F(RowGroupTest, OneRequiredColumnTwoGibibytesOfData) {
-  ParquetFile output(output_filename_);
-  boost::shared_array<uint8_t> buffer1(new uint8_t[2147483648]);
+// // Tests that the row group calculcations are correct, but does not
+// // actually flush and verify the file at this time.
+// TEST_F(RowGroupTest, OneRequiredColumnTwoGibibytesOfData) {
+//   ParquetFile output(output_filename_);
+//   boost::shared_array<uint8_t> buffer1(new uint8_t[2147483648]);
 
-  parquet::Type::type column_type = parquet::Type::INT32;
-  ParquetColumn* one_column =
-    new ParquetColumn({"AllInts"}, column_type,
-                      1, 1,
-                      FieldRepetitionType::REQUIRED,
-                      Encoding::PLAIN,
-                      CompressionCodec::UNCOMPRESSED,
-                      buffer1,
-                      2147483648);
+//   parquet::Type::type column_type = parquet::Type::INT32;
+//   ParquetColumn* one_column =
+//     new ParquetColumn({"AllInts"}, column_type,
+//                       1, 1,
+//                       FieldRepetitionType::REQUIRED,
+//                       Encoding::PLAIN,
+//                       CompressionCodec::UNCOMPRESSED,
+//                       buffer1,
+//                       2147483648);
 
-  ParquetColumn* root_column =
-    new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
-  root_column->SetChildren({one_column});
-  output.SetSchema(root_column);
-  int32_t data_value = INT_MAX;
+//   ParquetColumn* root_column =
+//     new ParquetColumn({"root"}, FieldRepetitionType::REQUIRED);
+//   root_column->SetChildren({one_column});
+//   output.SetSchema(root_column);
+//   int32_t data_value = INT_MAX;
 
-  int num_values = 2147483648 / 4;
-  one_column->AddSingletonValueAsNRecords(&data_value, 0, num_values);
+//   int num_values = 2147483648 / 4;
+//   one_column->AddSingletonValueAsNRecords(&data_value, 0, num_values);
 
-  // Intentionally skipping flush for this test case.
-  CHECK_EQ(output.CalculateNumberOfRowGroups(),
-           2147483648 / parquet_file::kMaxDataBytesPerRowGroup)
-      << "Number of row groups was not as expected";
-}
+//   // Intentionally skipping flush for this test case.
+//   CHECK_EQ(output.CalculateNumberOfRowGroups(),
+//            2147483648 / parquet_file::kMaxDataBytesPerRowGroup)
+//       << "Number of row groups was not as expected";
+// }
 
 // Tests that the output works with two columns of integers, one array
 // and one non-array.  The array column has 1 array of 500 integers
