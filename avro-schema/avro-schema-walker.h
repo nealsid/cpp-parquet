@@ -37,16 +37,26 @@ static std::map<avro::Type, parquet::Type::type> type_mapping{
 class AvroSchemaCallback {
  public:
   // Callback function for each
-  virtual bool AtNode(const NodePtr& node, const vector<string>& names,
-                      int level, void* data_from_parent, void** data_for_children) = 0;
+  virtual bool AtNode(const NodePtr& node,
+                      bool optional,
+                      bool array,
+                      const vector<string>& names,
+                      int level,
+                      void* data_from_parent,
+                      void** data_for_children) = 0;
 };
 
 class AvroSchemaWalker {
  public:
   explicit AvroSchemaWalker(const string& json_file);
   void WalkSchema(AvroSchemaCallback* callback) const;
- private:
+private:
+  bool LeafSubtreeRepresentsOptionalType(const NodePtr& node,
+                                         int* child_of_leaf_index) const;
+
   void StartWalk(const NodePtr node,
+                 bool optional,
+                 bool array,
                  vector<string>* name,
                  int level, AvroSchemaCallback* callback,
                  void* data_from_parent) const;
@@ -57,15 +67,20 @@ class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
  public:
   AvroSchemaToParquetSchemaConverter();
   bool AtNode(const NodePtr& node,
+              bool optional,
+              bool array,
               const vector<string>& names,
               int level,
-              void* data_from_parent, void** data_for_children);
+              void* data_from_parent,
+              void** data_for_children);
 
   ParquetColumn* Root();
  private:
   // Helper method to convert an AVRO NodePtr to a ParquetColumn.
   // Requires that the NodePtr is of a primitive AVRO type.
   ParquetColumn* AvroNodePtrToParquetColumn(const NodePtr& node,
+                                            bool optional,
+                                            bool array,
                                             const vector<string>& names,
                                             int level) const;
   std::map<string, ParquetColumn*> name_to_column_;

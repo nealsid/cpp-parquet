@@ -21,10 +21,12 @@ AvroSchemaWalker::AvroSchemaWalker(const string& json_file) {
 void AvroSchemaWalker::WalkSchema(AvroSchemaCallback* callback) const {
   const NodePtr& root = schema_.root();
   vector<string> names;
-  StartWalk(root, &names, 0, callback, nullptr);
+  StartWalk(root, false, false, &names, 0, callback, nullptr);
 }
 
 void AvroSchemaWalker::StartWalk(const NodePtr node,
+                                 bool optional,
+                                 bool array,
                                  vector<string>* names,
                                  int level,
                                  AvroSchemaCallback* callback,
@@ -32,8 +34,9 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
   VLOG(2) << "Inside StartWalk. Level: " << level << ". Leaf count: "
           << node->leaves() << ". Name count: " << node->names() << ". Type: "
           << node->type();
-  void* data_for_children;
-  bool continue_to_recurse = callback->AtNode(node, *names, level,
+  void* data_for_children = nullptr;
+  bool continue_to_recurse = callback->AtNode(node, optional, array,
+                                              *names, level,
                                               data_from_parent, &data_for_children);
   if (!continue_to_recurse) {
     return;
@@ -51,19 +54,69 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
     // very useful - they only contain type information, but not the
     // name.  So we read the child name from the parent and use that
     // in the callback for the child.
-    bool pushed = false;
-    if (node->names() > i) {
+    size_t num_names = node->names();
+    if (num_names > i) {
       const string& name_for_leaf = node->nameAt(i);
       names->push_back(name_for_leaf);
       VLOG(2) << "Name of leaf " << i << ": " << name_for_leaf;
-      pushed = true;
     }
-    StartWalk(node->leafAt(i), names, level + 1,
+    int child_of_leaf_index = -1;
+    NodePtr node_to_recurse_on(nullptr);
+    if (LeafSubtreeRepresentsOptionalType(node->leafAt(i),
+                                          &child_of_leaf_index)) {
+      optional = true;
+      array = false;
+      node_to_recurse_on = node->leafAt(i)->leafAt(child_of_leaf_index);
+    } else // if (LeafSubtreeRepresentsArrayType(node->leafAt(i), &child_of_leaf_index)) {
+    //   array = true;
+    //   optional = false;
+    //   node_to_recurse_on = node->leafAt(child_of_leaf_index);
+    // } else
+    {
+      optional = false;
+      array = false;
+      node_to_recurse_on = node->leafAt(i);
+    }
+    CHECK(avro::isPrimitive(node_to_recurse_on->type()) ||
+          node_to_recurse_on->type() == avro::AVRO_RECORD)
+        << "Node was not primitive or record: " << node_to_recurse_on->type();
+    StartWalk(node_to_recurse_on, optional, array,
+              names, level + 1,
               callback, data_for_children);
-    if (pushed) {
+    if (num_names > i) {
       names->pop_back();
     }
   }
+}
+
+bool AvroSchemaWalker::LeafSubtreeRepresentsOptionalType(const NodePtr& node,
+                                                         int* child_of_leaf_index) const {
+  if (node->type() != avro::AVRO_UNION) {
+    return false;
+  }
+
+  // If we're processing a union node, we make sure it's the union of
+  // 1 NULL and 1 non-null type
+  // Search for a "null", becaues AVRO represents optional data as a
+  // union of NULL and another type.
+  int null_leaf_index = -1;
+  for (int j = 0; j < node->leaves(); ++j) {
+    if (node->leafAt(j)->type() == avro::AVRO_NULL) {
+      // This is probably waaaaay overly-defensive, but, hey, never
+      // trust user input.
+      CHECK_EQ(null_leaf_index, -1) << "AVRO schema has union of two NULLs";
+      null_leaf_index = j;
+    }
+  }
+  CHECK(null_leaf_index != -1 && node->leaves() == 2) <<
+      "Parquet does not support unions of multiple non-null " <<
+      " subtypes without defining multiple columns for each subtype of " <<
+      " the union. (https://issues.apache.org/jira/browse/PARQUET-155)";
+  // We do 1 - null_leaf_index to pick the opposite node of the one that's the
+  // null node.
+  *child_of_leaf_index = 1 - null_leaf_index;
+  VLOG(2) << "Non-null leaf type: " << node->leafAt(*child_of_leaf_index)->type();
+  return true;
 }
 
 AvroSchemaToParquetSchemaConverter::AvroSchemaToParquetSchemaConverter() :
@@ -71,6 +124,8 @@ AvroSchemaToParquetSchemaConverter::AvroSchemaToParquetSchemaConverter() :
 }
 
 bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
+                                                bool optional,
+                                                bool array,
                                                 const vector<string>& names,
                                                 int level,
                                                 void* data_from_parent,
@@ -95,7 +150,8 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
       // also ensure that the outer message name is not part of the schema
       // path of any fields further down in the schema tree.
       vector<string> outer_message_name = {node->name().fullname()};
-      column = AvroNodePtrToParquetColumn(node, outer_message_name, level);
+      column = AvroNodePtrToParquetColumn(node, optional, array,
+                                          outer_message_name, level);
       LOG_IF(WARNING, root_ != nullptr) << "Root being overwritten";
       root_ = column;
     } else {
@@ -103,62 +159,17 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
       // parquet schema in the order that they're defined in the AVRO
       // file, AND they're part of the parquet schema at the place where
       // they're referenced in the AVRO file via AVRO_SYMBOLIC node types.
-      column = AvroNodePtrToParquetColumn(node, names, level);
+      column = AvroNodePtrToParquetColumn(node, optional, array, names, level);
     }
     *data_for_children = column;
     VLOG(3) << column->ToString();
     return true;
   }
 
-  // If we're processing a union node, we do the following:
-  // 1) Make sure it's the union of 1 NULL and 1 non-null type
-  // 2) We return false so that the schema walker doesn't recurse down.
-  // 3) We ourselves recurse directly on the non-null child.(this
-  // should probably be fixed as it's not very elegant. perhaps we can
-  // return a post-child traversal callback function instead of
-  // returning false and recursing ourselves)
-  if (node->type() == avro::AVRO_UNION) {
-    // Search for a "null" so that we can make this column optional in
-    // the Parquet schema.
-    int null_leaf_index = -1;
-    for (int j = 0; j < node->leaves(); ++j) {
-      if (node->leafAt(j)->type() == avro::AVRO_NULL) {
-        // This is probably waaaaay overly-defensive, but, hey, never
-        // trust user input.
-        CHECK_EQ(null_leaf_index, -1) << "AVRO schema has union of two NULLs";
-        null_leaf_index = j;
-      }
-    }
-    CHECK(null_leaf_index != -1 && node->leaves() == 2) <<
-        "Parquet does not support unions of multiple non-null " <<
-        " subtypes without defining multiple columns for each subtype of " <<
-        " the union. (https://issues.apache.org/jira/browse/PARQUET-155)";
-    // We do 1 - null_leaf_index to pick the opposite node of the one that's the
-    // null node.
-    VLOG(2) << "\twalking down non-null subtree of union node";
-    const NodePtr non_null_leaf = node->leafAt(1 - null_leaf_index);
-
-    if (non_null_leaf->type() == avro::AVRO_SYMBOLIC) {
-      return false;
-    }
-    CHECK(avro::isPrimitive(non_null_leaf->type()) ||
-          non_null_leaf->type() == avro::AVRO_RECORD) <<
-        "Parquet does not support optional arrays or other non-primitive "
-        "types (the equivalent is an array with 0 elements) (type: " << non_null_leaf->type() << ")";
-
-    VLOG(2) << "Non-null leaf type: " << non_null_leaf->type();
-    AtNode(non_null_leaf, names, level + 1,
-           data_from_parent, data_for_children);
-    ((ParquetColumn*) (*data_for_children))->setFieldRepetitionType(
-        FieldRepetitionType::OPTIONAL);
-    return false;
-  }
-
   LOG_IF(FATAL, data_from_parent == nullptr)
     << "No parent data passed into callback for child node";
   if (avro::isPrimitive(node->type()) || node->type() == avro::AVRO_RECORD) {
-    column = AvroNodePtrToParquetColumn(node, names, level);
-
+    column = AvroNodePtrToParquetColumn(node, optional, array, names, level);
     ParquetColumn* parent = (ParquetColumn*) data_from_parent;
     parent->AddChild(column);
 
@@ -176,6 +187,8 @@ ParquetColumn* AvroSchemaToParquetSchemaConverter::Root() {
 ParquetColumn*
 AvroSchemaToParquetSchemaConverter::AvroNodePtrToParquetColumn(
     const NodePtr& node,
+    bool optional,
+    bool array,
     const vector<string>& names,
     int level) const {
   avro::Type avro_type = node->type();
@@ -190,7 +203,7 @@ AvroSchemaToParquetSchemaConverter::AvroNodePtrToParquetColumn(
   c = new ParquetColumn(
       names, column_data_type,
       level, level,
-      FieldRepetitionType::REQUIRED,
+      optional ? FieldRepetitionType::OPTIONAL : FieldRepetitionType::REQUIRED,
       Encoding::PLAIN,
       CompressionCodec::UNCOMPRESSED);
 
