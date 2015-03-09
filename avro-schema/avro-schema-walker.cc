@@ -132,35 +132,30 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
                                                 void** data_for_children) {
   ParquetColumn* column = nullptr;
   CHECK_NOTNULL(data_for_children);
-  if (node->type() == avro::AVRO_RECORD) {
-    if (level == 0 && data_from_parent == nullptr && names.size() == 0) {
-      VLOG(3) << "Assigning root";
-      // This is a very ugly hack.  Normally, Parquet requires fields to
-      // have a dot-joined name of the schema path in the
-      // metadata. I.e. "a.b.c".  This is accomplished by the "names"
-      // parameter, which is a vector of strings that is appended to as
-      // the depth-first-traversal of the schema happens.  As a special
-      // case, this schema path name should NOT contain the outer message
-      // name.  However, if we don't embed the outer message name as the
-      // root column's name, tools like parquet-schema (or presumably,
-      // anything that reads parquet), won't be able to know the name of
-      // the message contained in the file, which isn't horrible...but it
-      // is a regression compared to other tools.  So we do this special
-      // hack to make sure the root column has the outer message name, but
-      // also ensure that the outer message name is not part of the schema
-      // path of any fields further down in the schema tree.
-      vector<string> outer_message_name = {node->name().fullname()};
-      column = AvroNodePtrToParquetColumn(node, optional, array,
-                                          outer_message_name, level);
-      LOG_IF(WARNING, root_ != nullptr) << "Root being overwritten";
-      root_ = column;
-    } else {
-      // Nested records are handled specially - they are part of the
-      // parquet schema in the order that they're defined in the AVRO
-      // file, AND they're part of the parquet schema at the place where
-      // they're referenced in the AVRO file via AVRO_SYMBOLIC node types.
-      column = AvroNodePtrToParquetColumn(node, optional, array, names, level);
-    }
+  if (node->type() == avro::AVRO_RECORD &&
+      level == 0 &&
+      data_from_parent == nullptr &&
+      names.size() == 0) {
+    VLOG(3) << "Assigning root";
+    // This is a very ugly hack.  Normally, Parquet requires fields to
+    // have a dot-joined name of the schema path in the
+    // metadata. I.e. "a.b.c".  This is accomplished by the "names"
+    // parameter, which is a vector of strings that is appended to as
+    // the depth-first-traversal of the schema happens.  As a special
+    // case, this schema path name should NOT contain the outer message
+    // name.  However, if we don't embed the outer message name as the
+    // root column's name, tools like parquet-schema (or presumably,
+    // anything that reads parquet), won't be able to know the name of
+    // the message contained in the file, which isn't horrible...but it
+    // is a regression compared to other tools.  So we do this special
+    // hack to make sure the root column has the outer message name, but
+    // also ensure that the outer message name is not part of the schema
+    // path of any fields further down in the schema tree.
+    vector<string> outer_message_name = {node->name().fullname()};
+    column = AvroNodePtrToParquetColumn(node, optional, array,
+                                        outer_message_name, level);
+    LOG_IF(WARNING, root_ != nullptr) << "Root being overwritten";
+    root_ = column;
     *data_for_children = column;
     VLOG(3) << column->ToString();
     return true;
