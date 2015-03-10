@@ -18,7 +18,7 @@ AvroSchemaWalker::AvroSchemaWalker(const string& json_file) {
   avro::compileJsonSchema(in, schema_);
 }
 
-void AvroSchemaWalker::WalkSchema(AvroSchemaCallback* callback) const {
+void AvroSchemaWalker::WalkSchema(AvroSchemaCallback* callback) {
   const NodePtr& root = schema_.root();
   vector<string> names;
   StartWalk(root, false, false, &names, 0, callback, nullptr);
@@ -30,7 +30,7 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
                                  vector<string>* names,
                                  int level,
                                  AvroSchemaCallback* callback,
-                                 void* data_from_parent) const {
+                                 void* data_from_parent) {
   VLOG(2) << "Inside StartWalk. Level: " << level << ". Leaf count: "
           << node->leaves() << ". Name count: " << node->names() << ". Type: "
           << node->type();
@@ -61,12 +61,15 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
       VLOG(2) << "Name of leaf " << i << ": " << name_for_leaf;
     }
     int child_of_leaf_index = -1;
+    NodePtr leaf = node->leafAt(i);
     NodePtr node_to_recurse_on(nullptr);
-    if (LeafSubtreeRepresentsOptionalType(node->leafAt(i),
+    if (LeafSubtreeRepresentsOptionalType(leaf,
                                           &child_of_leaf_index)) {
       optional = true;
       array = false;
-      node_to_recurse_on = node->leafAt(i)->leafAt(child_of_leaf_index);
+      node_to_recurse_on = leaf->leafAt(child_of_leaf_index);
+    } else if (leaf->type() == avro::AVRO_SYMBOLIC) {
+      // TODO handle this by redirecting to map we've filled in.
     } else // if (LeafSubtreeRepresentsArrayType(node->leafAt(i), &child_of_leaf_index)) {
     //   array = true;
     //   optional = false;
@@ -75,11 +78,19 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
     {
       optional = false;
       array = false;
-      node_to_recurse_on = node->leafAt(i);
+      node_to_recurse_on = leaf;
     }
     CHECK(avro::isPrimitive(node_to_recurse_on->type()) ||
-          node_to_recurse_on->type() == avro::AVRO_RECORD)
-        << "Node was not primitive or record: " << node_to_recurse_on->type();
+          node_to_recurse_on->type() == avro::AVRO_RECORD ||
+          node_to_recurse_on->type() == avro::AVRO_SYMBOLIC)
+        << "Node was not primitive or record: "
+        << node_to_recurse_on->type() << "/" << node_to_recurse_on->name();
+
+    if (node_to_recurse_on->type() == avro::AVRO_RECORD) {
+      VLOG(2) << "Nested record: " << node->name();
+      name_to_nodeptr_.insert(make_pair(node->name(), node));
+    }
+
     StartWalk(node_to_recurse_on, optional, array,
               names, level + 1,
               callback, data_for_children);
@@ -132,6 +143,9 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
                                                 void** data_for_children) {
   ParquetColumn* column = nullptr;
   CHECK_NOTNULL(data_for_children);
+  // Special case the root, with some sanity checks and special behavior
+  // for the column name (which represents the message name of the
+  // outer message in the Parquet file)
   if (node->type() == avro::AVRO_RECORD &&
       level == 0 &&
       data_from_parent == nullptr &&
@@ -163,13 +177,14 @@ bool AvroSchemaToParquetSchemaConverter::AtNode(const NodePtr& node,
 
   LOG_IF(FATAL, data_from_parent == nullptr)
     << "No parent data passed into callback for child node";
+
   if (avro::isPrimitive(node->type()) || node->type() == avro::AVRO_RECORD) {
     column = AvroNodePtrToParquetColumn(node, optional, array, names, level);
-    ParquetColumn* parent = (ParquetColumn*) data_from_parent;
-    parent->AddChild(column);
+    ((ParquetColumn*) data_from_parent)->AddChild(column);
 
     VLOG(3) << column->ToString();
     *data_for_children = column;
+
     return true;
   }
   CHECK(false) << "Unsupported case";

@@ -49,7 +49,8 @@ class AvroSchemaCallback {
 class AvroSchemaWalker {
  public:
   explicit AvroSchemaWalker(const string& json_file);
-  void WalkSchema(AvroSchemaCallback* callback) const;
+  void WalkSchema(AvroSchemaCallback* callback);
+
 private:
   bool LeafSubtreeRepresentsOptionalType(const NodePtr& node,
                                          int* child_of_leaf_index) const;
@@ -59,8 +60,9 @@ private:
                  bool array,
                  vector<string>* name,
                  int level, AvroSchemaCallback* callback,
-                 void* data_from_parent) const;
+                 void* data_from_parent);
   avro::ValidSchema schema_;
+  std::map<string, const NodePtr> name_to_nodeptr_;
 };
 
 class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
@@ -83,7 +85,6 @@ class AvroSchemaToParquetSchemaConverter : public AvroSchemaCallback {
                                             bool array,
                                             const vector<string>& names,
                                             int level) const;
-  std::map<string, ParquetColumn*> name_to_column_;
   ParquetColumn* root_;
 };
 

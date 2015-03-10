@@ -220,5 +220,10 @@
     "type" : [ "null", "long" ],
     "doc" : "The end position of the mate of this read. Should be set to null if the\n   mate is unaligned, or if the mate does not exist.",
     "default" : null
+  }, {
+    "name" : "mateContig",
+    "type" : [ "null", "Contig" ],
+    "doc" : "The reference contig of the mate of this read. Should be set to null if the\n   mate is unaligned, or if the mate does not exist.",
+    "default" : null
   } ]
 }
