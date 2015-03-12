@@ -54,6 +54,7 @@ class AvroSchemaWalker {
 private:
   bool LeafSubtreeRepresentsOptionalType(const NodePtr& node,
                                          int* child_of_leaf_index) const;
+  bool LeafSubtreeRepresentsArrayType(const NodePtr& node) const;
 
   void StartWalk(const NodePtr node,
                  bool optional,

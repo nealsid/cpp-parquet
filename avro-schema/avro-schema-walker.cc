@@ -37,7 +37,8 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
   void* data_for_children = nullptr;
   bool continue_to_recurse = callback->AtNode(node, optional, array,
                                               *names, level,
-                                              data_from_parent, &data_for_children);
+                                              data_from_parent,
+                                              &data_for_children);
   if (!continue_to_recurse) {
     return;
   }
@@ -61,38 +62,40 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
       VLOG(2) << "Name of leaf " << i << ": " << name_for_leaf;
     }
     int child_of_leaf_index = -1;
-    NodePtr leaf = node->leafAt(i);
-    NodePtr node_to_recurse_on(leaf);
+    NodePtr node_to_recurse_on(node->leafAt(i));
     optional = false;
     array = false;
-    if (LeafSubtreeRepresentsOptionalType(leaf,
+    if (LeafSubtreeRepresentsOptionalType(node_to_recurse_on,
                                           &child_of_leaf_index)) {
       optional = true;
       array = false;
-      node_to_recurse_on = leaf->leafAt(child_of_leaf_index);
+      node_to_recurse_on = node_to_recurse_on->leafAt(child_of_leaf_index);
+    }
+    if (LeafSubtreeRepresentsArrayType(node_to_recurse_on)) {
+      optional = false;
+      array = true;
+      CHECK(node_to_recurse_on->leaves() == 1)
+          << "Array node had more than 1 leaf.";
+      node_to_recurse_on = node_to_recurse_on->leafAt(0);
     }
     if (node_to_recurse_on->type() == avro::AVRO_SYMBOLIC) {
       // TODO handle this by redirecting to map we've filled in.
       auto lookup = name_to_nodeptr_.find(node_to_recurse_on->name());
-      if (lookup == name_to_nodeptr_.end()) {
-        LOG(FATAL) << "Symbolic reference to unknown record type: " << node_to_recurse_on->name();
-      }
+      // Technically, this error is caught during the libavro schema
+      // parsing stage, but we should check it here anyway in case
+      // that changes.
+      LOG_IF(FATAL, lookup == name_to_nodeptr_.end())
+          << "Symbolic reference to unknown record type: "
+          << node_to_recurse_on->name();
       VLOG(2) << "Found " << node_to_recurse_on->name();
       node_to_recurse_on = lookup->second;
-    } // // else if (LeafSubtreeRepresentsArrayType(node->leafAt(i), &child_of_leaf_index)) {
-    //   //   array = true;
-    //   //   optional = false;
-    //   //   node_to_recurse_on = node->leafAt(child_of_leaf_index);
-    //   // } else
-    // {
-    //   optional = false;
-    //   array = false;
-    //   node_to_recurse_on = leaf;
-    // }
+    }
+
     CHECK(avro::isPrimitive(node_to_recurse_on->type()) ||
           node_to_recurse_on->type() == avro::AVRO_RECORD)
         << "Node was not primitive or record: "
-        << node_to_recurse_on->type() << "/" << node_to_recurse_on->name();
+        << node_to_recurse_on->type()
+        << (node_to_recurse_on->hasName() ? node_to_recurse_on->name().fullname() : "");
 
     if (node_to_recurse_on->type() == avro::AVRO_RECORD) {
       VLOG(2) << "Nested record: " << node_to_recurse_on->name();
@@ -106,6 +109,15 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
       names->pop_back();
     }
   }
+}
+
+bool AvroSchemaWalker::LeafSubtreeRepresentsArrayType(const NodePtr& node) const {
+  if (node->type() != avro::AVRO_ARRAY) {
+    return false;
+  }
+
+  LOG_IF(WARNING, node->leaves() > 1) << "Array node has more than 1 leaf";
+  return true;
 }
 
 bool AvroSchemaWalker::LeafSubtreeRepresentsOptionalType(const NodePtr& node,
@@ -218,10 +230,19 @@ AvroSchemaToParquetSchemaConverter::AvroNodePtrToParquetColumn(
     LOG(FATAL) << "Unsupported column data type: " << node->type();
   }
   parquet::Type::type column_data_type = (*type_lookup).second;
+  FieldRepetitionType::type column_type;
+  if (array) {
+    column_type = FieldRepetitionType::REPEATED;
+  } else if (optional) {
+    column_type = FieldRepetitionType::OPTIONAL;
+  } else {
+    column_type = FieldRepetitionType::REQUIRED;
+  }
+
   c = new ParquetColumn(
       names, column_data_type,
       level, level,
-      optional ? FieldRepetitionType::OPTIONAL : FieldRepetitionType::REQUIRED,
+      column_type,
       Encoding::PLAIN,
       CompressionCodec::UNCOMPRESSED);
 
