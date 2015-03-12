@@ -62,33 +62,41 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
     }
     int child_of_leaf_index = -1;
     NodePtr leaf = node->leafAt(i);
-    NodePtr node_to_recurse_on(nullptr);
+    NodePtr node_to_recurse_on(leaf);
+    optional = false;
+    array = false;
     if (LeafSubtreeRepresentsOptionalType(leaf,
                                           &child_of_leaf_index)) {
       optional = true;
       array = false;
       node_to_recurse_on = leaf->leafAt(child_of_leaf_index);
-    } else if (leaf->type() == avro::AVRO_SYMBOLIC) {
-      // TODO handle this by redirecting to map we've filled in.
-    } else // if (LeafSubtreeRepresentsArrayType(node->leafAt(i), &child_of_leaf_index)) {
-    //   array = true;
-    //   optional = false;
-    //   node_to_recurse_on = node->leafAt(child_of_leaf_index);
-    // } else
-    {
-      optional = false;
-      array = false;
-      node_to_recurse_on = leaf;
     }
+    if (node_to_recurse_on->type() == avro::AVRO_SYMBOLIC) {
+      // TODO handle this by redirecting to map we've filled in.
+      auto lookup = name_to_nodeptr_.find(node_to_recurse_on->name());
+      if (lookup == name_to_nodeptr_.end()) {
+        LOG(FATAL) << "Symbolic reference to unknown record type: " << node_to_recurse_on->name();
+      }
+      VLOG(2) << "Found " << node_to_recurse_on->name();
+      node_to_recurse_on = lookup->second;
+    } // // else if (LeafSubtreeRepresentsArrayType(node->leafAt(i), &child_of_leaf_index)) {
+    //   //   array = true;
+    //   //   optional = false;
+    //   //   node_to_recurse_on = node->leafAt(child_of_leaf_index);
+    //   // } else
+    // {
+    //   optional = false;
+    //   array = false;
+    //   node_to_recurse_on = leaf;
+    // }
     CHECK(avro::isPrimitive(node_to_recurse_on->type()) ||
-          node_to_recurse_on->type() == avro::AVRO_RECORD ||
-          node_to_recurse_on->type() == avro::AVRO_SYMBOLIC)
+          node_to_recurse_on->type() == avro::AVRO_RECORD)
         << "Node was not primitive or record: "
         << node_to_recurse_on->type() << "/" << node_to_recurse_on->name();
 
     if (node_to_recurse_on->type() == avro::AVRO_RECORD) {
-      VLOG(2) << "Nested record: " << node->name();
-      name_to_nodeptr_.insert(make_pair(node->name(), node));
+      VLOG(2) << "Nested record: " << node_to_recurse_on->name();
+      name_to_nodeptr_.insert(make_pair(node_to_recurse_on->name(), node_to_recurse_on));
     }
 
     StartWalk(node_to_recurse_on, optional, array,
