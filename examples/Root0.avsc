@@ -1,0 +1,42 @@
+{
+  "type" : "record",
+  "name" : "Root0",
+  "namespace" : "org.cppparquet",
+  "fields" : [ {
+    "name" : "root1",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "Root1",
+      "fields" : [ {
+        "name" : "root2",
+        "type" : [ "null", {
+          "type" : "record",
+          "name" : "Root2",
+          "fields" : [ {
+            "name" : "root3",
+            "type" : [ "null", {
+              "type" : "record",
+              "name" : "Root3",
+              "fields" : [ {
+                "name" : "root4",
+                "type" : [ "null", {
+                  "type" : "record",
+                  "name" : "Root4",
+                  "fields" : [ {
+                    "name" : "primitive",
+                    "type" : [ "null", "int" ],
+                    "default" : null
+                  } ]
+                } ],
+                "default" : null
+              } ]
+            } ],
+            "default" : null
+          } ]
+        } ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  } ]
+}

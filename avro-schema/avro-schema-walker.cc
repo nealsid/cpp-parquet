@@ -71,6 +71,7 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
       array = false;
       node_to_recurse_on = node_to_recurse_on->leafAt(child_of_leaf_index);
     }
+
     if (LeafSubtreeRepresentsArrayType(node_to_recurse_on)) {
       optional = false;
       array = true;
@@ -78,8 +79,8 @@ void AvroSchemaWalker::StartWalk(const NodePtr node,
           << "Array node had more than 1 leaf.";
       node_to_recurse_on = node_to_recurse_on->leafAt(0);
     }
+
     if (node_to_recurse_on->type() == avro::AVRO_SYMBOLIC) {
-      // TODO handle this by redirecting to map we've filled in.
       auto lookup = name_to_nodeptr_.find(node_to_recurse_on->name());
       // Technically, this error is caught during the libavro schema
       // parsing stage, but we should check it here anyway in case

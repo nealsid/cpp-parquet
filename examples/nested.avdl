@@ -1,0 +1,22 @@
+@namespace("org.cppparquet")
+protocol Sample {
+  record Root4 {
+    union { null, int } primitive = null;
+  }
+
+  record Root3 {
+    union { null, Root4 } root4 = null;
+  }
+
+  record Root2 {
+    union { null, Root3 } root3 = null;
+  }
+
+  record Root1 {
+    union { null, Root2 } root2 = null;
+  }
+
+  record Root0 {
+    union { null, Root1 } root1 = null;
+  }
+}
