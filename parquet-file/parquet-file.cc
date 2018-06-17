@@ -179,13 +179,22 @@ void ParquetFile::SetSchema(ParquetColumn* root) {
   // Parquet's metadata needs the schema as a list, which results from
   // a depth-first traversal of the schema as a tree.
   vector<SchemaElement> parquet_schema_vector;
-  ParquetColumnWalker* walker = new ParquetColumnWalker(&parquet_schema_vector);
   LOG_IF(WARNING, file_columns_.size() > 0)
     << "Internal file columns being reset";
   file_columns_.clear();
   DepthFirstSchemaTraversal(root,
-                            [walker] (ParquetColumn* c) {
-                              walker->ColumnCallback(c);
+                            [&parquet_schema_vector] (ParquetColumn* c) {
+                              SchemaElement schemaElement;
+                              schemaElement.__set_name(c->Name());
+                              schemaElement.__set_repetition_type(c->getFieldRepetitionType());
+                              // Parquet requires that we don't set the number of children if
+                              // the schema element is for a data column.
+                              if (c->Children().size() > 0) {
+                                schemaElement.__set_num_children(c->Children().size());
+                              } else {
+                                schemaElement.__set_type(c->getType());
+                              }
+                              parquet_schema_vector.push_back(schemaElement);
                             });
   VLOG(2) << root->ToString();
 
@@ -195,24 +204,5 @@ void ParquetFile::SetSchema(ParquetColumn* root) {
 const ParquetColumn* ParquetFile::Root() const {
   return file_columns_.at(0);
 }
-
-ParquetColumnWalker::ParquetColumnWalker(vector<SchemaElement>* dfsVector)
-    : dfsVector_(dfsVector) {
-}
-
-void ParquetColumnWalker::ColumnCallback(ParquetColumn* column) {
-  SchemaElement schemaElement;
-  schemaElement.__set_name(column->Name());
-  schemaElement.__set_repetition_type(column->getFieldRepetitionType());
-  // Parquet requires that we don't set the number of children if
-  // the schema element is for a data column.
-  if (column->Children().size() > 0) {
-    schemaElement.__set_num_children(column->Children().size());
-  } else {
-    schemaElement.__set_type(column->getType());
-  }
-  dfsVector_->push_back(schemaElement);
-}
-
 
 }  // namespace parquet_file

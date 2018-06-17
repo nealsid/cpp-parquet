@@ -30,7 +30,6 @@ const uint32_t kDataBytesPerPage = 81920000;
 namespace parquet_file {
 const int kMaxDataBytesPerRowGroup = 1024000;
 
-class ParquetColumnWalker;
 // Main class that represents a Parquet file on disk.
 class ParquetFile {
  public:
@@ -88,25 +87,6 @@ class ParquetFile {
   // A bit indicating that we've initialized OK, defined the schema,
   // and are ready to start accepting & writing data.
   bool ok_;
-};
-
-// A callback class for use with DepthFirstSchemaTraversal.  The
-// callback is called for each column in a depth-first, preorder,
-// traversal.
-class ParquetColumnWalker {
- public:
-  // A vector in which nodes are appended according to their order in
-  // the depth first traversal.  We do not take ownership of the
-  // vector.
-  explicit ParquetColumnWalker(vector<SchemaElement>* dfsVector);
-
-  // Override this, and it will be executed for each column.
-  void ColumnCallback(ParquetColumn* column);
-
- private:
-  // SchemaElement is a POD object, which is why we store the actual
-  // message and not a pointer.
-  vector<SchemaElement>* dfsVector_;
 };
 
 }  // namespace parquet_file
