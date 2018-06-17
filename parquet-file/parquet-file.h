@@ -20,6 +20,7 @@ using apache::thrift::protocol::TCompactProtocol;
 using parquet::CompressionCodec;
 using parquet::FileMetaData;
 using parquet::SchemaElement;
+using std::function;
 using std::set;
 using std::string;
 using std::vector;
@@ -61,7 +62,7 @@ class ParquetFile {
   // vector that is the depth first preorder traversal of the schema,
   // which is what this method does.
   void DepthFirstSchemaTraversal(ParquetColumn* root_column,
-                                 ParquetColumnWalker* callback);
+                                 const function<void(ParquetColumn*)>& callback);
 
 
   // Fills the passed in set with the number of rows in all

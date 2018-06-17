@@ -27,6 +27,7 @@ using parquet::PageHeader;
 using parquet::PageType;
 using parquet::RowGroup;
 using parquet::SchemaElement;
+using std::function;
 using std::set;
 
 const char* kParquetMagicBytes = "PAR1";
@@ -59,8 +60,9 @@ ParquetFile::ParquetFile(string file_base, int num_files) {
 }
 
 void ParquetFile::DepthFirstSchemaTraversal(ParquetColumn* root_column,
-                                            ParquetColumnWalker* callback) {
-  callback->ColumnCallback(root_column);
+                                            const function<void(ParquetColumn*)>&
+                                            callback) {
+  callback(root_column);
   file_columns_.push_back(root_column);
   const vector<ParquetColumn*>& children = root_column->Children();
   for (ParquetColumn* c : children) {
@@ -181,7 +183,10 @@ void ParquetFile::SetSchema(ParquetColumn* root) {
   LOG_IF(WARNING, file_columns_.size() > 0)
     << "Internal file columns being reset";
   file_columns_.clear();
-  DepthFirstSchemaTraversal(root, walker);
+  DepthFirstSchemaTraversal(root,
+                            [walker] (ParquetColumn* c) {
+                              walker->ColumnCallback(c);
+                            });
   VLOG(2) << root->ToString();
 
   file_meta_data_.__set_schema(parquet_schema_vector);
