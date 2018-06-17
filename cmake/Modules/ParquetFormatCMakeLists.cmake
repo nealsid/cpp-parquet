@@ -1,7 +1,7 @@
 ExternalProject_Add(parquet-format
    PREFIX ${CMAKE_BINARY_DIR}/third_party/build/parquet-format
    GIT_REPOSITORY https://github.com/apache/parquet-format
-   GIT_TAG apache-parquet-format-2.2.0
+   GIT_TAG apache-parquet-format-2.5.0
    # Set these to nonempty, so CMake executes the subsequent steps.
    CONFIGURE_COMMAND touch /tmp/foo
    BUILD_COMMAND touch /tmp/foo
