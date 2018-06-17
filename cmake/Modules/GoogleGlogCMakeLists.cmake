@@ -1,7 +1,7 @@
 ExternalProject_Add(google-glog
    PREFIX ${CMAKE_BINARY_DIR}/third_party/build/google-glog
-   SVN_REPOSITORY http://google-glog.googlecode.com/svn/trunk/
-   SVN_REVISION -r 142
+   GIT_REPOSITORY https://github.com/google/glog
+   GIT_TAG v0.3.5
    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR>
    BUILD_COMMAND make
    INSTALL_COMMAND make install

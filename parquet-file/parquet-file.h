@@ -3,7 +3,6 @@
 #include "./parquet_types.h"
 
 #include <fcntl.h>
-#include <boost/shared_ptr.hpp>
 #include <glog/logging.h>
 #include <parquet-file/parquet-column.h>
 #include <thrift/protocol/TCompactProtocol.h>
@@ -82,8 +81,8 @@ class ParquetFile {
 
   // Member variables used to actually encode & write the data to
   // disk.
-  boost::shared_ptr<TFDTransport> file_transport_;
-  boost::shared_ptr<TCompactProtocol> protocol_;
+  std::shared_ptr<TFDTransport> file_transport_;
+  std::shared_ptr<TCompactProtocol> protocol_;
 
   // A bit indicating that we've initialized OK, defined the schema,
   // and are ready to start accepting & writing data.

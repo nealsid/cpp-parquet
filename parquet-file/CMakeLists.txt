@@ -9,11 +9,12 @@ ADD_CUSTOM_COMMAND(
 )
 
 ExternalProject_Get_Property(googletest SOURCE_DIR)
-INCLUDE_DIRECTORIES(${SOURCE_DIR} ${SOURCE_DIR}/include)
+INCLUDE_DIRECTORIES(${SOURCE_DIR}/googletest ${SOURCE_DIR}/googletest/include)
 
-SET_SOURCE_FILES_PROPERTIES(${SOURCE_DIR}/src/gtest-all.cc PROPERTIES GENERATED 1)
+SET_SOURCE_FILES_PROPERTIES(${SOURCE_DIR}/googletest/src/gtest-all.cc PROPERTIES GENERATED 1)
 
-ADD_EXECUTABLE(parquet-file-test parquet-file-test.cc ${SOURCE_DIR}/src/gtest-all.cc)
+ADD_EXECUTABLE(parquet-file-test parquet-file-test.cc ${SOURCE_DIR}/googletest/src/gtest-all.cc)
+# Not sure why I had to do this instead of adding it to target_link_libraries below.
 ADD_DEPENDENCIES(parquet-file-test googletest)
 set_property(TARGET parquet-file-test PROPERTY DEPENDS googletest)
 
