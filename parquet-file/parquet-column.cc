@@ -170,12 +170,14 @@ void ParquetColumn::AddRecords(void* buf, uint16_t repetition_level,
   size_t num_bytes = n * bytes_per_datum_;
   memcpy(data_ptr_, buf, num_bytes);
   num_datums_ += n;
+
   size_t rep_start = repetition_levels_.size();
   size_t def_start = definition_levels_.size();
 
+  repetition_levels_.insert(repetition_levels_.end(), n, repetition_level);
+  definition_levels_.insert(definition_levels_.end(), n, max_definition_level_);
+
   for (int i = 0; i < n; ++i) {
-    repetition_levels_.push_back(repetition_level);
-    definition_levels_.push_back(max_definition_level_);
     AddRecordMetadata(rep_start + i, rep_start + i + 1,
                       def_start + i, def_start + i + 1,
                       data_ptr_, data_ptr_ + bytes_per_datum_);
@@ -214,13 +216,18 @@ void ParquetColumn::AddNulls(uint16_t current_repetition_level,
                              uint32_t n) {
   LOG_IF(FATAL, getFieldRepetitionType() != FieldRepetitionType::OPTIONAL) <<
     "Cannot add NULL to non-optional column: " << FullSchemaPath();
+
   record_metadata.reserve(record_metadata.size() + n);
+  repetition_levels_.reserve(repetition_levels_.size() + n);
+  definition_levels_.reserve(definition_levels_.size() + n);
+
   size_t rep_start = repetition_levels_.size();
   size_t def_start = definition_levels_.size();
-  for (int i = 0; i < n; ++i) {
-    repetition_levels_.push_back(current_repetition_level);
-    definition_levels_.push_back(current_definition_level);
 
+  repetition_levels_.insert(repetition_levels_.end(), n, current_repetition_level);
+  definition_levels_.insert(definition_levels_.end(), n, current_definition_level);
+
+  for (int i = 0; i < n; ++i) {
     AddRecordMetadata(rep_start + i, rep_start + i + 1,
                       def_start + i, def_start + i + 1,
                       data_ptr_, data_ptr_);
