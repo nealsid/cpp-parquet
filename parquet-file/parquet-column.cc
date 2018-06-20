@@ -127,6 +127,7 @@ void ParquetColumn::AddSingletonValueAsNRecords(void* buf,
   num_datums_ += n;
   size_t rep_start = repetition_levels_.size();
   size_t def_start = definition_levels_.size();
+  
   switch(bytes_per_datum_) {
     case 4:
       std::fill((uint32_t*)data_ptr_, (uint32_t*)(data_ptr_ + (bytes_per_datum_ * n)), *(uint32_t*)buf);

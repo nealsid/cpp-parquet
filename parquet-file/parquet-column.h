@@ -25,9 +25,17 @@ using std::vector;
 namespace parquet_file {
 
 struct RecordMetadata {
-  size_t repetition_level_index_start;
+  // The index in the rep level vector where this record's repetition
+  // level starts.
+  size_t repetition_level_index_start; 
+  // The index in the rep level vector where this record's repetition
+  // level ends (not inclusive).
   size_t repetition_level_index_end;
+  // The index in the def level vector where this record's definition
+  // level starts.
   size_t definition_level_index_start;
+  // The index in the def level vector where this record's definition
+  // level ends (not inclusive).
   size_t definition_level_index_end;
   uint8_t* byte_begin;
   uint8_t* byte_end;
@@ -186,10 +194,11 @@ class ParquetColumn {
   // sadly, there doesn't seem to be a way to use pointers to the
   // middle of an array and get shared_array semantics with the array.
   // So we have to use a raw pointer.  However, our semantics are
-  // fairly easy to understand: delete the buffer pointed to by
-  // data_buffer_ (above) when this class is deleted, in which case
-  // the data_ptr_ is useless anyway.
+  // fairly easy to understand: delete the buffer or decrease the ref
+  // count of the buffer pointed to by data_buffer_ (above) when this
+  // class is deleted, in which case the data_ptr_ is useless anyway.
   uint8_t* data_ptr_;
+  
   // Repetition level array. Run-length encoded before being written.
   vector<uint8_t> repetition_levels_;
   // Integer representing max repetition level in the schema tree.

@@ -145,7 +145,8 @@ void ParquetFile::Flush() {
        ++column_iter) {
     auto column = *column_iter;
     if (column->Children().size() > 0) {
-      VLOG(3) << "Skipping column: " << column->FullSchemaPath();
+      VLOG(3) << "Skipping column because it's non-leaf: " <<
+        column->FullSchemaPath();
       continue;
     }
     VLOG(2) << "Writing column: " << column->FullSchemaPath();
