@@ -27,7 +27,6 @@
 #include "thrift/protocol/TCompactProtocol.h"
 #include "thrift/transport/TFDTransport.h"
 #include <fcntl.h>
-#include <boost/shared_ptr.hpp>
 #include <string>
 
 using apache::thrift::transport::TFDTransport;
@@ -67,7 +66,7 @@ int main(int argc, char* argv[]) {
 
   // Think of a Transport as a place to stream data to. In our case,
   // we're using a file-descriptor transport.
-  boost::shared_ptr<TFDTransport> file_transport(new TFDTransport(fd));
+  std::shared_ptr<TFDTransport> file_transport(new TFDTransport(fd));
   // Protocol objects take a transport object.  Data is encoded and
   // then written to/read from the transport object.  Parquet
   // specifies that various metadata records are encoded using the
