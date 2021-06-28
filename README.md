@@ -1,4 +1,5 @@
 # cpp-parquet
+This is a Parquet file writer in C++ that I wrote in 2013.  There's a newer, more complete, and better supported alternative here: https://github.com/apache/parquet-cpp.  A frequent question I get about this is why I didn't use C++ templates.  The primary reason is each Parquet data type does not require much specialization for outputting or handling.  The output logic has conditionals depending on whether the column is part of another message, repeated, nullable, etc, but not a lot of dependencies on the specific data type other than its size.
 
 March 7th, 2015
 
